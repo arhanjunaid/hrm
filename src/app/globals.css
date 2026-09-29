@@ -1,0 +1,97 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Rightfit Brand Tokens ────────────────────────────────────────────────── */
+:root {
+  /* Moss — primary brand accent (from rightfit.com.in) */
+  --rf-moss:        #7E8920;
+  --rf-moss-bright: #A8B542;
+  --rf-moss-deep:   #565E14;
+  --rf-moss-soft:   rgba(126, 137, 32, 0.45);
+  --rf-moss-faint:  rgba(126, 137, 32, 0.14);
+
+  /* Ink — deep dark surfaces */
+  --rf-ink:         #14160D;
+  --rf-ink-deep:    #0E100A;
+
+  /* Surface — warm paper tones */
+  --rf-bg:          #F7F6F0;
+  --rf-surface:     #ECEFDE;
+  --rf-card:        #FFFFFF;
+
+  /* Text */
+  --rf-text:        #1A1C12;
+  --rf-muted:       #6B7280;
+}
+
+/* ── Base ─────────────────────────────────────────────────────────────────── */
+@layer base {
+  body {
+    @apply antialiased font-sans;
+    background-color: var(--rf-bg);
+    color: var(--rf-text);
+  }
+
+  ::selection {
+    background-color: var(--rf-moss);
+    color: var(--rf-bg);
+  }
+}
+
+/* ── Rightfit Brand Utilities ─────────────────────────────────────────────── */
+@layer utilities {
+  .bg-rf-moss    { background-color: var(--rf-moss); }
+  .bg-rf-ink     { background-color: var(--rf-ink); }
+  .bg-rf-surface { background-color: var(--rf-surface); }
+  .text-rf-moss  { color: var(--rf-moss); }
+  .text-rf-bright { color: var(--rf-moss-bright); }
+  .text-rf-ink   { color: var(--rf-ink); }
+  .border-rf     { border-color: rgba(126, 137, 32, 0.2); }
+}
+
+/* ── Glass Panels ─────────────────────────────────────────────────────────── */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+.glass-dark {
+  background: rgba(14, 16, 10, 0.92);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(60, 70, 20, 0.5);
+}
+
+/* ── Scrollbars ───────────────────────────────────────────────────────────── */
+::-webkit-scrollbar       { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--rf-bg); }
+::-webkit-scrollbar-thumb { background: #3A4028; border-radius: 9999px; }
+::-webkit-scrollbar-thumb:hover { background: var(--rf-moss-soft); }
+
+/* ── Hover Lift Animation ─────────────────────────────────────────────────── */
+.hover-lift {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px -5px rgba(0,0,0,0.08), 0 8px 10px -6px rgba(0,0,0,0.04);
+}
+
+/* ── Rightfit Table Utilities ─────────────────────────────────────────────── */
+.rf-table thead th {
+  @apply py-3 px-4 text-[11px] font-black text-slate-400 uppercase tracking-wider;
+  border-bottom: 1px solid rgba(226,232,240,0.8);
+}
+.rf-table tbody tr {
+  @apply transition-colors border-b border-slate-100 last:border-0;
+}
+.rf-table tbody tr:hover {
+  background-color: rgba(126, 137, 32, 0.06);
+}
+.rf-table tbody td {
+  @apply py-3.5 px-4 text-xs text-slate-700;
+}
