@@ -36,9 +36,13 @@ export async function POST(request: Request) {
       },
     });
 
+    // Use the actual request protocol so the cookie isn't dropped when the
+    // app is served over plain HTTP (e.g. a staging server without TLS).
+    const isHttps = request.url.startsWith("https://");
+
     response.cookies.set("auth_token", token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: isHttps,
       sameSite: "lax",
       path: "/",
       maxAge: 60 * 60 * 24, // 24 hours

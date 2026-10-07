@@ -8,5 +8,16 @@ export async function POST(request: Request) {
   const userAgent = request.headers.get("user-agent") || "Unknown";
 
   await logoutUser(session?.id, clientIp, userAgent);
-  return NextResponse.json({ success: true, redirectTo: "/login" });
+
+  const isHttps = request.url.startsWith("https://");
+
+  const response = NextResponse.json({ success: true, redirectTo: "/login" });
+  response.cookies.set("auth_token", "", {
+    httpOnly: true,
+    secure: isHttps,
+    sameSite: "lax",
+    path: "/",
+    maxAge: 0,
+  });
+  return response;
 }
