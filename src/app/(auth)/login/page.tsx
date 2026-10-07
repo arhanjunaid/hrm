@@ -44,6 +44,9 @@ export default function LoginPage() {
 
       router.push(data.data.redirectTo);
       router.refresh();
+      // Navigation may take a moment; clear loading state so the button
+      // doesn't stay frozen if the router stalls for any reason.
+      setIsLoading(false);
     } catch (err: any) {
       setErrorMsg("Network error occurred during login.");
       setIsLoading(false);
