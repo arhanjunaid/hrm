@@ -41,7 +41,11 @@ export const Navbar: React.FC<NavbarProps> = ({ user }) => {
 
   const handleLogout = async () => {
     try {
-      await fetch("/api/auth/logout", { method: "POST" });
+      await fetch("/api/auth/logout", {
+        method: "POST",
+        credentials: "same-origin",
+        cache: "no-store",
+      });
     } catch {
       // ignore network errors — still redirect
     }

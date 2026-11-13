@@ -69,6 +69,7 @@ export async function clearSessionCookie() {
     sameSite: "lax",
     path: "/",
     maxAge: 0,
+    expires: new Date(0),
   });
 }
 

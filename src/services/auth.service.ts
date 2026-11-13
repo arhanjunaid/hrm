@@ -53,14 +53,18 @@ export async function loginUser(email: string, password: string, ipAddress?: str
 
 export async function logoutUser(userId?: string, ipAddress?: string, userAgent?: string) {
   if (userId) {
-    await createAuditLog({
-      userId,
-      action: "LOGOUT",
-      entityType: "User",
-      entityId: userId,
-      ipAddress,
-      userAgent,
-    });
+    try {
+      await createAuditLog({
+        userId,
+        action: "LOGOUT",
+        entityType: "User",
+        entityId: userId,
+        ipAddress,
+        userAgent,
+      });
+    } catch {
+      // Audit failures must never block logout — cookie is still cleared below.
+    }
   }
   try {
     await clearSessionCookie();
