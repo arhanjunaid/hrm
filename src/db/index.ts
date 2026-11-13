@@ -1,18 +1,11 @@
 import { drizzle } from "drizzle-orm/mysql2";
 import mysql from "mysql2/promise";
 import * as schema from "./schema";
-
-import fs from "fs";
-import path from "path";
+import { loadDbSsl } from "./db-ssl";
 
 const connectionUri = process.env.DATABASE_URL || "mysql://root:@127.0.0.1:3306/recruitment_portal";
 
-const caPath = path.resolve(process.cwd(), "ca.pem");
-const sslConfig = fs.existsSync(caPath)
-  ? { ca: fs.readFileSync(caPath) }
-  : connectionUri.includes("aivencloud.com")
-  ? { rejectUnauthorized: false }
-  : undefined;
+const sslConfig = loadDbSsl(connectionUri);
 
 // Strip ssl-mode from URI to prevent mysql2 connection option warning
 const cleanUri = connectionUri.replace(/[?&]ssl-mode=[^&]*/, "");

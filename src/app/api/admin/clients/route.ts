@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
-import { db } from "@/db";
-import { vendors } from "@/db/schema";
-import { randomUUID } from "crypto";
+import { createClient } from "@/services/client.service";
 
 export async function POST(req: NextRequest) {
   try {
@@ -12,29 +10,12 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { name, code, contactName, contactEmail, contactPhone, notes, status } = body;
+    const { name, code, contactName, contactEmail, contactPhone, notes, status, crmStatus } = body;
 
-    if (!name?.trim()) {
-      return NextResponse.json({ success: false, error: { message: "Client name is required." } }, { status: 400 });
-    }
-    if (!code?.trim()) {
-      return NextResponse.json({ success: false, error: { message: "Client code is required." } }, { status: 400 });
-    }
-    if (!contactEmail?.trim()) {
-      return NextResponse.json({ success: false, error: { message: "Contact email is required." } }, { status: 400 });
-    }
-
-    const id = randomUUID();
-    await db.insert(vendors).values({
-      id,
-      name: name.trim(),
-      code: code.trim().toUpperCase(),
-      contactName: contactName?.trim() || null,
-      contactEmail: contactEmail.trim(),
-      contactPhone: contactPhone?.trim() || null,
-      notes: notes?.trim() || null,
-      status: status || "ACTIVE",
-    });
+    const id = await createClient(
+      { name, code, contactName, contactEmail, contactPhone, notes, status, crmStatus },
+      session.id
+    );
 
     return NextResponse.json({ success: true, id });
   } catch (err: any) {

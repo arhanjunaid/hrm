@@ -73,6 +73,14 @@ export const Badge: React.FC<BadgeProps> = ({
     // ── Vendor/Client status ──────────────────────────────────────────
     else if (s === "ACTIVE") resolvedVariant = "green";
     else if (s === "INACTIVE") resolvedVariant = "gray";
+
+    // ── CRM prospect stages ─────────────────────────────────────────
+    else if (s === "COLD_PROSPECT") resolvedVariant = "sky";
+    else if (s === "CLOSED_PROSPECT") resolvedVariant = "gray";
+    else if (s === "HOT_PROSPECT") resolvedVariant = "orange";
+    else if (s === "SIGNED_UP_CLIENT") resolvedVariant = "purple";
+    else if (s === "ACTIVE_CLIENT") resolvedVariant = "green";
+    else if (s === "DORMANT_CLIENT") resolvedVariant = "yellow";
   }
 
   const variantStyles: Record<BadgeVariant, { bg: string; dot: string }> = {

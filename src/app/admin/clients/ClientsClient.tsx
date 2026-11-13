@@ -5,9 +5,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Building2, Mail, Phone, Calendar, FolderOpen,
-  ChevronRight, Plus, X, Check,
+  ChevronRight, Plus, X, Check, IdCard,
 } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
+import {
+  CRM_CLIENT_STATUSES,
+  CRM_CLIENT_STATUS_LABELS,
+  DEFAULT_CRM_CLIENT_STATUS,
+} from "@/lib/crm/constants";
 
 interface Client {
   id: string;
@@ -18,6 +23,7 @@ interface Client {
   contactPhone: string | null;
   notes: string | null;
   status: string;
+  crmStatus: string;
   createdAt: string | Date;
   projects: { id: string }[];
   jobDescriptions: { id: string }[];
@@ -33,17 +39,23 @@ const emptyForm = {
   contactPhone: "",
   notes: "",
   status: "ACTIVE",
+  crmStatus: DEFAULT_CRM_CLIENT_STATUS,
 };
 
 export function ClientsClient({ initialClients }: { initialClients: Client[] }) {
   const router = useRouter();
   const [clients, setClients] = useState<Client[]>(initialClients);
+  const [crmFilter, setCrmFilter] = useState<string>("ALL");
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const set = (key: string, val: string) => setForm((p) => ({ ...p, [key]: val }));
+
+  const visibleClients = crmFilter === "ALL"
+    ? clients
+    : clients.filter((c) => c.crmStatus === crmFilter);
 
   // Auto-generate code from name
   const handleNameChange = (val: string) => {
@@ -79,19 +91,34 @@ export function ClientsClient({ initialClients }: { initialClients: Client[] }) 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">Client Management</h2>
           <p className="text-sm text-slate-500 mt-1">
             Registered clients, their projects, contact information, and platform usage.
           </p>
         </div>
-        <button
-          onClick={() => { setForm(emptyForm); setError(null); setShowForm(true); }}
-          className="flex items-center gap-2 text-xs font-bold px-4 py-2.5 rounded-xl bg-[#7E8920] text-white hover:bg-[#6b7519] transition-all shadow-sm"
-        >
-          <Plus className="w-4 h-4" /> New Client
-        </button>
+        <div className="flex items-center gap-3">
+          <select
+            aria-label="Filter by prospect stage"
+            className="border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-slate-400"
+            value={crmFilter}
+            onChange={(e) => setCrmFilter(e.target.value)}
+          >
+            <option value="ALL">All stages</option>
+            {CRM_CLIENT_STATUSES.map((s) => (
+              <option key={s} value={s}>
+                {CRM_CLIENT_STATUS_LABELS[s]}
+              </option>
+            ))}
+          </select>
+          <button
+            onClick={() => { setForm(emptyForm); setError(null); setShowForm(true); }}
+            className="flex items-center gap-2 text-xs font-bold px-4 py-2.5 rounded-xl bg-[#7E8920] text-white hover:bg-[#6b7519] transition-all shadow-sm"
+          >
+            <Plus className="w-4 h-4" /> New Client
+          </button>
+        </div>
       </div>
 
       {/* Create Client Modal */}
@@ -139,6 +166,20 @@ export function ClientsClient({ initialClients }: { initialClients: Client[] }) 
                 >
                   <option value="ACTIVE">Active</option>
                   <option value="INACTIVE">Inactive</option>
+                </select>
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-xs font-extrabold text-slate-700 mb-1">Prospect Stage</label>
+                <select
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+                  value={form.crmStatus}
+                  onChange={(e) => set("crmStatus", e.target.value)}
+                >
+                  {CRM_CLIENT_STATUSES.map((s) => (
+                    <option key={s} value={s}>
+                      {CRM_CLIENT_STATUS_LABELS[s]}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div>
@@ -199,27 +240,36 @@ export function ClientsClient({ initialClients }: { initialClients: Client[] }) 
       )}
 
       {/* Client Cards Grid */}
-      {clients.length === 0 ? (
+      {visibleClients.length === 0 ? (
         <div className="bg-white rounded-[32px] border border-slate-200/80 shadow-2xs p-12 text-center space-y-3">
           <Building2 className="w-10 h-10 text-slate-300 mx-auto" />
-          <p className="text-slate-500 font-medium text-sm">No clients yet.</p>
-          <button onClick={() => setShowForm(true)} className="text-xs font-bold text-blue-600 hover:underline">
-            Create the first client →
-          </button>
+          <p className="text-slate-500 font-medium text-sm">
+            {clients.length === 0 ? "No clients yet." : "No clients in this stage."}
+          </p>
+          {clients.length === 0 && (
+            <button onClick={() => setShowForm(true)} className="text-xs font-bold text-blue-600 hover:underline">
+              Create the first client →
+            </button>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {clients.map((client) => (
+          {visibleClients.map((client) => (
             <div
               key={client.id}
               className="bg-white rounded-[28px] border border-slate-200/80 shadow-2xs p-6 flex flex-col justify-between hover-lift"
             >
               <div>
-                <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center justify-between mb-3 gap-2">
                   <span className="font-mono text-xs font-bold px-2 py-1 bg-slate-100 text-slate-700 rounded-md">
                     {client.code}
                   </span>
-                  <Badge status={client.status}>{client.status}</Badge>
+                  <div className="flex items-center gap-1.5">
+                    <Badge status={client.crmStatus} size="sm">
+                      {CRM_CLIENT_STATUS_LABELS[client.crmStatus as keyof typeof CRM_CLIENT_STATUS_LABELS] ?? client.crmStatus}
+                    </Badge>
+                    <Badge status={client.status} size="sm">{client.status}</Badge>
+                  </div>
                 </div>
                 <h3 className="text-base font-extrabold text-slate-900">{client.name}</h3>
                 {client.contactName && (
@@ -253,6 +303,16 @@ export function ClientsClient({ initialClients }: { initialClients: Client[] }) 
                   <span><strong className="text-slate-900">{client.users.length}</strong> Users</span>
                   <span><strong className="text-slate-900">{client.jobDescriptions.length}</strong> JDs</span>
                 </div>
+                <Link
+                  href={`/admin/clients/${client.id}`}
+                  className="flex items-center justify-between w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200/80 text-xs font-bold text-slate-700 hover:bg-slate-100 transition-all"
+                >
+                  <span className="flex items-center gap-1.5">
+                    <IdCard className="w-3.5 h-3.5 text-slate-400" />
+                    Profile, Contract & Log
+                  </span>
+                  <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                </Link>
                 <Link
                   href={`/admin/clients/${client.id}/projects`}
                   className="flex items-center justify-between w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200/80 text-xs font-bold text-slate-700 hover:bg-slate-100 transition-all"

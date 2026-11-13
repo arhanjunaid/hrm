@@ -3,7 +3,7 @@ import { users } from "@/db/schema";
 import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
 import { createAuditLog } from "./audit.service";
-import { createSessionToken, clearSessionCookie } from "@/lib/auth/session";
+import { createSessionToken, setSessionCookie, clearSessionCookie } from "@/lib/auth/session";
 
 export async function loginUser(email: string, password: string, ipAddress?: string, userAgent?: string) {
   const user = await db.query.users.findFirst({
@@ -33,6 +33,11 @@ export async function loginUser(email: string, password: string, ipAddress?: str
   };
 
   const token = await createSessionToken(sessionPayload);
+  try {
+    await setSessionCookie(token);
+  } catch (err) {
+    // Next.js request context safe catch for standalone scripts/tests
+  }
 
   await createAuditLog({
     userId: user.id,
@@ -43,7 +48,7 @@ export async function loginUser(email: string, password: string, ipAddress?: str
     userAgent,
   });
 
-  return { ...sessionPayload, token };
+  return sessionPayload;
 }
 
 export async function logoutUser(userId?: string, ipAddress?: string, userAgent?: string) {

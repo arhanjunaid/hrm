@@ -15,8 +15,10 @@ import { disciplines } from "./disciplines";
 import { statusMasters } from "./status-masters";
 import { jobTitles } from "./job-titles";
 import { userProjects } from "./user-projects";
+import { clientCommunications } from "./client-communications";
 
 export * from "./vendors";
+export * from "./client-communications";
 export * from "./users";
 export * from "./jobs";
 export * from "./candidates";
@@ -41,6 +43,7 @@ export const vendorsRelations = relations(vendors, ({ many }) => ({
   submissions: many(candidateSubmissions),
   projects: many(projects),
   statusMasters: many(statusMasters),
+  communications: many(clientCommunications),
 }));
 
 export const projectsRelations = relations(projects, ({ one, many }) => ({
@@ -88,6 +91,7 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   notifications: many(notifications),
   auditLogs: many(auditLogs),
   userProjects: many(userProjects),
+  communicationsCreated: many(clientCommunications),
 }));
 
 export const jobDescriptionsRelations = relations(jobDescriptions, ({ one, many }) => ({
@@ -196,6 +200,17 @@ export const commentsRelations = relations(comments, ({ one }) => ({
 export const notificationsRelations = relations(notifications, ({ one }) => ({
   user: one(users, {
     fields: [notifications.userId],
+    references: [users.id],
+  }),
+}));
+
+export const clientCommunicationsRelations = relations(clientCommunications, ({ one }) => ({
+  client: one(vendors, {
+    fields: [clientCommunications.clientId],
+    references: [vendors.id],
+  }),
+  createdByUser: one(users, {
+    fields: [clientCommunications.createdBy],
     references: [users.id],
   }),
 }));

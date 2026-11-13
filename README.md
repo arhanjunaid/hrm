@@ -168,6 +168,11 @@ Run the full automated test suite validating authentication, RBAC, Vendor data i
 npm run test:workflow
 ```
 
+Run the CRM prospect-tracking suite (client stages, communication log validation, contract upload):
+```bash
+npm run test:crm
+```
+
 ---
 
 ## Project Structure
