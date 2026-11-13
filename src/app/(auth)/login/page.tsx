@@ -1,14 +1,12 @@
 "use client";
 
 import React, { useState } from "react";
-import { useRouter } from "next/navigation";
 import { Briefcase, Lock, Mail, ArrowRight, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Toast } from "@/components/ui/Toast";
 
 export default function LoginPage() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -42,8 +40,10 @@ export default function LoginPage() {
         return;
       }
 
-      router.push(data.data.redirectTo);
-      router.refresh();
+      // Hard redirect so the browser reloads fully with the fresh session
+      // cookie. A client-side push can silently bounce back to /login when the
+      // cookie wasn't stored, leaving the button spinning forever.
+      window.location.href = data.data.redirectTo;
     } catch (err: any) {
       setErrorMsg("Network error occurred during login.");
       setIsLoading(false);

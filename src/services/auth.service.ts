@@ -5,7 +5,13 @@ import { eq } from "drizzle-orm";
 import { createAuditLog } from "./audit.service";
 import { createSessionToken, setSessionCookie, clearSessionCookie } from "@/lib/auth/session";
 
-export async function loginUser(email: string, password: string, ipAddress?: string, userAgent?: string) {
+export async function loginUser(
+  email: string,
+  password: string,
+  ipAddress?: string,
+  userAgent?: string,
+  secureCookies?: boolean
+) {
   const user = await db.query.users.findFirst({
     where: eq(users.email, email.toLowerCase().trim()),
     with: { vendor: true },
@@ -34,7 +40,7 @@ export async function loginUser(email: string, password: string, ipAddress?: str
 
   const token = await createSessionToken(sessionPayload);
   try {
-    await setSessionCookie(token);
+    await setSessionCookie(token, secureCookies);
   } catch (err) {
     // Next.js request context safe catch for standalone scripts/tests
   }
@@ -51,7 +57,12 @@ export async function loginUser(email: string, password: string, ipAddress?: str
   return sessionPayload;
 }
 
-export async function logoutUser(userId?: string, ipAddress?: string, userAgent?: string) {
+export async function logoutUser(
+  userId?: string,
+  ipAddress?: string,
+  userAgent?: string,
+  secureCookies?: boolean
+) {
   if (userId) {
     try {
       await createAuditLog({
@@ -67,6 +78,6 @@ export async function logoutUser(userId?: string, ipAddress?: string, userAgent?
     }
   }
   try {
-    await clearSessionCookie();
+    await clearSessionCookie(secureCookies);
   } catch (err) {}
 }

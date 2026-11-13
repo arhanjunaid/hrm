@@ -1,15 +1,16 @@
 import { NextResponse } from "next/server";
-import { getSession } from "@/lib/auth/session";
+import { getSession, shouldUseSecureCookies } from "@/lib/auth/session";
 import { logoutUser } from "@/services/auth.service";
 
 export async function POST(request: Request) {
   const session = await getSession().catch(() => null);
   const clientIp = request.headers.get("x-forwarded-for") || "127.0.0.1";
   const userAgent = request.headers.get("user-agent") || "Unknown";
+  const secure = shouldUseSecureCookies(request);
 
   // Audit/DB failures must never block logout — the cookie clear below still runs.
   try {
-    await logoutUser(session?.id, clientIp, userAgent);
+    await logoutUser(session?.id, clientIp, userAgent, secure);
   } catch {
     // ignore — still clear the cookie and report success
   }
@@ -19,7 +20,7 @@ export async function POST(request: Request) {
   // guaranteed even if the `cookies()` store mutation above throws or is lost.
   response.cookies.set("auth_token", "", {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure,
     sameSite: "lax",
     path: "/",
     maxAge: 0,

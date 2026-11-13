@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { loginUser } from "@/services/auth.service";
+import { shouldUseSecureCookies } from "@/lib/auth/session";
 
 export async function POST(request: Request) {
   try {
@@ -16,7 +17,7 @@ export async function POST(request: Request) {
     const clientIp = request.headers.get("x-forwarded-for") || "127.0.0.1";
     const userAgent = request.headers.get("user-agent") || "Unknown";
 
-    const user = await loginUser(email, password, clientIp, userAgent);
+    const user = await loginUser(email, password, clientIp, userAgent, shouldUseSecureCookies(request));
 
     const defaultRedirect = user.role === "ADMIN" ? "/admin/dashboard" : "/vendor/jobs";
     const safeNext =

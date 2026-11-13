@@ -50,22 +50,37 @@ export async function getSession(): Promise<SessionUser | null> {
   return await verifySessionToken(token);
 }
 
-export async function setSessionCookie(token: string) {
+export function shouldUseSecureCookies(request?: Request): boolean {
+  // A `Secure` cookie is rejected by browsers over plain HTTP, which silently
+  // breaks login on HTTP deployments. Derive it from the actual request scheme.
+  if (request) {
+    const forwardedProto = request.headers.get("x-forwarded-proto");
+    if (forwardedProto) return forwardedProto.split(",")[0].trim() === "https";
+    try {
+      return new URL(request.url).protocol === "https:";
+    } catch {
+      // fall through to env default
+    }
+  }
+  return process.env.NODE_ENV === "production";
+}
+
+export async function setSessionCookie(token: string, secure?: boolean) {
   const cookieStore = await cookies();
   cookieStore.set("auth_token", token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: secure ?? process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
     maxAge: 60 * 60 * 24, // 24 hours
   });
 }
 
-export async function clearSessionCookie() {
+export async function clearSessionCookie(secure?: boolean) {
   const cookieStore = await cookies();
   cookieStore.set("auth_token", "", {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: secure ?? process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
     maxAge: 0,
