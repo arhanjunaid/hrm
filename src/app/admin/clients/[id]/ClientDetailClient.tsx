@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft, Building2, Mail, Phone, Calendar, FileText,
   Eye, Upload, Plus, Pencil, Trash2, X, Check,
+  FolderOpen, Users, Paperclip,
 } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import {
@@ -12,7 +13,6 @@ import {
   CRM_CLIENT_STATUS_LABELS,
   COMMUNICATION_INITIATED_BY,
   COMMUNICATION_INITIATED_BY_LABELS,
-  COMMUNICATION_SOURCES,
   COMMUNICATION_SOURCE_LABELS,
 } from "@/lib/crm/constants";
 
@@ -24,7 +24,14 @@ interface Communication {
   description: string;
   actionRequired: string | null;
   dueDate: string | null;
+  fileName: string | null;
+  fileSize: number | null;
   createdByUser?: { name: string; email: string } | null;
+}
+
+interface CommSource {
+  code: string;
+  description: string;
 }
 
 interface ClientDetail {
@@ -37,6 +44,7 @@ interface ClientDetail {
   notes: string | null;
   status: string;
   crmStatus: string;
+  clientType: string;
   contractFileName: string | null;
   contractMimeType: string | null;
   contractFileSize: number | null;
@@ -56,14 +64,14 @@ interface CommFormState {
   dueDate: string;
 }
 
-const emptyCommForm: CommFormState = {
+const emptyCommForm = (defaultSource: string): CommFormState => ({
   contactDate: new Date().toISOString().slice(0, 10),
   initiatedBy: "RF",
-  source: "FOLLOW_UP",
+  source: defaultSource,
   description: "",
   actionRequired: "",
   dueDate: "",
-};
+});
 
 function formatDate(value: string | null | undefined) {
   if (!value) return "—";
@@ -82,6 +90,7 @@ export function ClientDetailClient({ initialClient }: { initialClient: ClientDet
   const [client, setClient] = useState<ClientDetail>(initialClient);
   const [crmStatus, setCrmStatus] = useState(initialClient.crmStatus);
   const [platformStatus, setPlatformStatus] = useState(initialClient.status);
+  const [clientType, setClientType] = useState(initialClient.clientType ?? "C");
   const [savingStatus, setSavingStatus] = useState(false);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
 
@@ -90,11 +99,33 @@ export function ClientDetailClient({ initialClient }: { initialClient: ClientDet
   const [contractMsg, setContractMsg] = useState<string | null>(null);
 
   const [comms, setComms] = useState<Communication[]>(initialClient.communications);
+  const [commSources, setCommSources] = useState<CommSource[]>([]);
   const [showCommForm, setShowCommForm] = useState(false);
   const [editingCommId, setEditingCommId] = useState<string | null>(null);
-  const [commForm, setCommForm] = useState<CommFormState>(emptyCommForm);
+  const [commForm, setCommForm] = useState<CommFormState>(emptyCommForm(""));
+  const [commFile, setCommFile] = useState<File | null>(null);
+  const [commRemoveFile, setCommRemoveFile] = useState(false);
+  const [editingCommFileName, setEditingCommFileName] = useState<string | null>(null);
   const [savingComm, setSavingComm] = useState(false);
   const [commError, setCommError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch(`/api/dropdowns?clientId=${encodeURIComponent(client.id)}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.commSources)) {
+          setCommSources(data.commSources);
+          setCommForm((p) => (p.source ? p : emptyCommForm(data.commSources[0]?.code ?? "")));
+        }
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [client.id]);
+
+  const sourceLabel = (code: string) =>
+    commSources.find((s) => s.code === code)?.description ??
+    COMMUNICATION_SOURCE_LABELS[code as keyof typeof COMMUNICATION_SOURCE_LABELS] ??
+    code;
 
   const refreshComms = async () => {
     const res = await fetch(`/api/admin/clients/${client.id}/communications`);
@@ -109,11 +140,11 @@ export function ClientDetailClient({ initialClient }: { initialClient: ClientDet
       const res = await fetch(`/api/admin/clients/${client.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ crmStatus, status: platformStatus }),
+        body: JSON.stringify({ crmStatus, status: platformStatus, clientType }),
       });
       const data = await res.json();
       if (!data.success) { setStatusMsg(data.error?.message || "Failed to update."); return; }
-      setClient((p) => ({ ...p, crmStatus, status: platformStatus }));
+      setClient((p) => ({ ...p, crmStatus, status: platformStatus, clientType }));
       setStatusMsg("Saved.");
     } finally {
       setSavingStatus(false);
@@ -149,7 +180,10 @@ export function ClientDetailClient({ initialClient }: { initialClient: ClientDet
 
   const openCommCreate = () => {
     setEditingCommId(null);
-    setCommForm(emptyCommForm);
+    setCommForm(emptyCommForm(commSources[0]?.code ?? ""));
+    setCommFile(null);
+    setCommRemoveFile(false);
+    setEditingCommFileName(null);
     setCommError(null);
     setShowCommForm(true);
   };
@@ -164,12 +198,16 @@ export function ClientDetailClient({ initialClient }: { initialClient: ClientDet
       actionRequired: c.actionRequired ?? "",
       dueDate: c.dueDate ? String(c.dueDate).slice(0, 10) : "",
     });
+    setCommFile(null);
+    setCommRemoveFile(false);
+    setEditingCommFileName(c.fileName);
     setCommError(null);
     setShowCommForm(true);
   };
 
   const handleCommSave = async () => {
     if (!commForm.contactDate) { setCommError("Date of contact is required."); return; }
+    if (!commForm.source) { setCommError("Source is required."); return; }
     if (!commForm.description.trim()) { setCommError("Description is required."); return; }
     setSavingComm(true);
     setCommError(null);
@@ -177,21 +215,24 @@ export function ClientDetailClient({ initialClient }: { initialClient: ClientDet
       const url = editingCommId
         ? `/api/admin/clients/${client.id}/communications/${editingCommId}`
         : `/api/admin/clients/${client.id}/communications`;
+      const formData = new FormData();
+      formData.append("contactDate", commForm.contactDate);
+      formData.append("initiatedBy", commForm.initiatedBy);
+      formData.append("source", commForm.source);
+      formData.append("description", commForm.description.trim());
+      formData.append("actionRequired", commForm.actionRequired.trim());
+      formData.append("dueDate", commForm.dueDate);
+      if (commFile) formData.append("file", commFile);
+      if (commRemoveFile) formData.append("removeFile", "true");
       const res = await fetch(url, {
         method: editingCommId ? "PATCH" : "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contactDate: commForm.contactDate,
-          initiatedBy: commForm.initiatedBy,
-          source: commForm.source,
-          description: commForm.description.trim(),
-          actionRequired: commForm.actionRequired.trim() || null,
-          dueDate: commForm.dueDate || null,
-        }),
+        body: formData,
       });
       const data = await res.json();
       if (!data.success) { setCommError(data.error?.message || "Failed to save."); return; }
       setShowCommForm(false);
+      setCommFile(null);
+      setCommRemoveFile(false);
       refreshComms();
     } finally {
       setSavingComm(false);
@@ -207,26 +248,45 @@ export function ClientDetailClient({ initialClient }: { initialClient: ClientDet
   return (
     <div className="space-y-6 max-w-5xl">
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <Link
-          href="/admin/clients"
-          className="p-2 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" />
-        </Link>
-        <div className="min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight truncate">{client.name}</h2>
-            <span className="font-mono text-xs font-bold px-2 py-1 bg-slate-100 text-slate-700 rounded-md">
-              {client.code}
-            </span>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-3 min-w-0">
+          <Link
+            href={client.clientType === "P" ? "/admin/prospects" : "/admin/clients"}
+            className="p-2 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition-colors shrink-0"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </Link>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight truncate">{client.name}</h2>
+              <span className="font-mono text-xs font-bold px-2 py-1 bg-slate-100 text-slate-700 rounded-md">
+                {client.code}
+              </span>
+            </div>
+            <div className="flex items-center gap-2 mt-1.5">
+              <Badge status={client.crmStatus}>
+                {CRM_CLIENT_STATUS_LABELS[client.crmStatus as keyof typeof CRM_CLIENT_STATUS_LABELS] ?? client.crmStatus}
+              </Badge>
+              <Badge status={client.status}>{client.status}</Badge>
+              <Badge variant={client.clientType === "P" ? "purple" : "blue"}>
+                {client.clientType === "P" ? "Prospect" : "Client"}
+              </Badge>
+            </div>
           </div>
-          <div className="flex items-center gap-2 mt-1.5">
-            <Badge status={client.crmStatus}>
-              {CRM_CLIENT_STATUS_LABELS[client.crmStatus as keyof typeof CRM_CLIENT_STATUS_LABELS] ?? client.crmStatus}
-            </Badge>
-            <Badge status={client.status}>{client.status}</Badge>
-          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Link
+            href={`/admin/clients/${client.id}/projects`}
+            className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-slate-300 bg-white text-xs font-bold text-slate-700 hover:bg-slate-50 shadow-2xs transition-all"
+          >
+            <FolderOpen className="w-4 h-4" /> Manage Projects
+          </Link>
+          <Link
+            href={`/admin/clients/${client.id}/users`}
+            className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-slate-300 bg-white text-xs font-bold text-slate-700 hover:bg-slate-50 shadow-2xs transition-all"
+          >
+            <Users className="w-4 h-4" /> Manage Users
+          </Link>
         </div>
       </div>
 
@@ -262,7 +322,18 @@ export function ClientDetailClient({ initialClient }: { initialClient: ClientDet
             <p className="text-slate-600">{client.notes || "—"}</p>
           </div>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-5 pt-5 border-t border-slate-100 items-end">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mt-5 pt-5 border-t border-slate-100 items-end">
+          <div>
+            <label className="block text-xs font-extrabold text-slate-700 mb-1">Type</label>
+            <select
+              className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+              value={clientType}
+              onChange={(e) => setClientType(e.target.value)}
+            >
+              <option value="C">C — Client</option>
+              <option value="P">P — Prospect</option>
+            </select>
+          </div>
           <div>
             <label className="block text-xs font-extrabold text-slate-700 mb-1">Prospect Stage</label>
             <select
@@ -359,7 +430,7 @@ export function ClientDetailClient({ initialClient }: { initialClient: ClientDet
           <p className="text-xs text-slate-500">No contacts logged yet. Record the first touchpoint from the day the lead was received.</p>
         ) : (
           <div className="overflow-x-auto -mx-6 px-6">
-            <table className="w-full text-xs min-w-[760px]">
+            <table className="w-full text-xs min-w-[860px]">
               <thead>
                 <tr className="text-left text-slate-400 font-extrabold border-b border-slate-100">
                   <th className="py-2 pr-3">Date</th>
@@ -368,6 +439,7 @@ export function ClientDetailClient({ initialClient }: { initialClient: ClientDet
                   <th className="py-2 pr-3">Description</th>
                   <th className="py-2 pr-3">Action Required</th>
                   <th className="py-2 pr-3">Due Date</th>
+                  <th className="py-2 pr-3">File</th>
                   <th className="py-2 text-right">Actions</th>
                 </tr>
               </thead>
@@ -379,11 +451,27 @@ export function ClientDetailClient({ initialClient }: { initialClient: ClientDet
                       {COMMUNICATION_INITIATED_BY_LABELS[c.initiatedBy as keyof typeof COMMUNICATION_INITIATED_BY_LABELS] ?? c.initiatedBy}
                     </td>
                     <td className="py-2.5 pr-3 text-slate-600">
-                      {COMMUNICATION_SOURCE_LABELS[c.source as keyof typeof COMMUNICATION_SOURCE_LABELS] ?? c.source}
+                      {sourceLabel(c.source)}
                     </td>
                     <td className="py-2.5 pr-3 text-slate-600 max-w-[280px]">{c.description}</td>
                     <td className="py-2.5 pr-3 text-slate-600 max-w-[200px]">{c.actionRequired || "—"}</td>
                     <td className="py-2.5 pr-3 text-slate-600 whitespace-nowrap">{formatDate(c.dueDate)}</td>
+                    <td className="py-2.5 pr-3 text-slate-600 max-w-[160px]">
+                      {c.fileName ? (
+                        <a
+                          href={`/api/admin/clients/${client.id}/communications/${c.id}/file`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 font-bold text-blue-600 hover:underline"
+                          title={c.fileName}
+                        >
+                          <Paperclip className="w-3.5 h-3.5 shrink-0" />
+                          <span className="truncate">{c.fileName}</span>
+                        </a>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
                     <td className="py-2.5 text-right whitespace-nowrap">
                       <button onClick={() => openCommEdit(c)} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100" aria-label="Edit entry">
                         <Pencil className="w-3.5 h-3.5" />
@@ -453,10 +541,17 @@ export function ClientDetailClient({ initialClient }: { initialClient: ClientDet
                   value={commForm.source}
                   onChange={(e) => setCommForm((p) => ({ ...p, source: e.target.value }))}
                 >
-                  {COMMUNICATION_SOURCES.map((v) => (
-                    <option key={v} value={v}>{COMMUNICATION_SOURCE_LABELS[v]}</option>
+                  {commSources.length === 0 && <option value="">Loading sources…</option>}
+                  {commSources.map((s) => (
+                    <option key={s.code} value={s.code}>{s.description}</option>
                   ))}
+                  {commForm.source && !commSources.some((s) => s.code === commForm.source) && (
+                    <option value={commForm.source}>{sourceLabel(commForm.source)}</option>
+                  )}
                 </select>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Sources are maintained under <Link href="/admin/status-masters" className="text-blue-600 hover:underline font-bold">Status Masters</Link>.
+                </p>
               </div>
               <div className="md:col-span-2">
                 <label className="block text-xs font-extrabold text-slate-700 mb-1">Description *</label>
@@ -477,6 +572,40 @@ export function ClientDetailClient({ initialClient }: { initialClient: ClientDet
                   onChange={(e) => setCommForm((p) => ({ ...p, actionRequired: e.target.value }))}
                   placeholder="Next step and owner…"
                 />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-xs font-extrabold text-slate-700 mb-1">Attach File (optional)</label>
+                {editingCommId && editingCommFileName && !commRemoveFile && !commFile && (
+                  <div className="flex items-center gap-2 mb-2 text-xs">
+                    <span className="inline-flex items-center gap-1 font-bold text-slate-700 bg-slate-100 rounded-lg px-2.5 py-1.5">
+                      <Paperclip className="w-3.5 h-3.5" /> {editingCommFileName}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setCommRemoveFile(true)}
+                      className="font-bold text-rose-600 hover:underline"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                )}
+                {commRemoveFile && !commFile && (
+                  <p className="text-xs text-amber-700 font-semibold mb-2">
+                    Current file will be removed on save.{" "}
+                    <button type="button" onClick={() => setCommRemoveFile(false)} className="underline">
+                      Undo
+                    </button>
+                  </p>
+                )}
+                <input
+                  type="file"
+                  accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.png,.jpg,.jpeg"
+                  onChange={(e) => { setCommFile(e.target.files?.[0] ?? null); setCommRemoveFile(false); }}
+                  className="text-xs text-slate-600 file:mr-3 file:px-4 file:py-2 file:rounded-xl file:border file:border-slate-200 file:text-xs file:font-bold file:text-slate-700 file:bg-slate-50 hover:file:bg-slate-100 file:cursor-pointer"
+                />
+                {commFile && (
+                  <p className="text-xs text-slate-500 mt-1">Selected: <strong>{commFile.name}</strong></p>
+                )}
               </div>
             </div>
             <div className="flex items-center justify-end gap-2 pt-1">

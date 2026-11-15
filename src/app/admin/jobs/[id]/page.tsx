@@ -2,7 +2,7 @@ import React from "react";
 import { requireAdmin } from "@/lib/auth/session";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { getJobById } from "@/services/job.service";
-import { CandidateModalForm } from "@/app/admin/candidates/CandidateModalForm";
+import { SubmitCandidateModal } from "@/app/admin/candidates/SubmitCandidateModal";
 import { Card, CardHeader } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import Link from "next/link";
@@ -19,9 +19,15 @@ export default async function AdminJobDetailPage({
 
   const job = await getJobById(jobId);
 
-  const formattedJobs = [
-    { id: job.id, title: job.title, jobCode: job.jobCode, vendorName: job.vendor.name },
-  ];
+  const defaultSelection = {
+    clientId: job.vendorId,
+    clientName: job.vendor.name,
+    projectId: job.projectId ?? "",
+    projectName: (job as any).project?.name ?? "",
+    jobId: job.id,
+    jobCode: job.jobCode,
+    jobTitle: job.title,
+  };
 
   const disciplineName =
     (job as any).discipline?.name ?? job.department ?? "—";
@@ -85,7 +91,7 @@ export default async function AdminJobDetailPage({
             >
               <Pencil className="w-4 h-4" /> Edit JD
             </Link>
-            <CandidateModalForm jobs={formattedJobs} defaultJobId={job.id} buttonLabel="Submit CV" />
+            <SubmitCandidateModal defaultSelection={defaultSelection} buttonLabel="Submit a Candidate" />
           </div>
         </div>
 
@@ -204,7 +210,7 @@ export default async function AdminJobDetailPage({
                 Select CVs and click Notify Client to email the client contact.
               </p>
             </div>
-            <CandidateModalForm jobs={formattedJobs} defaultJobId={job.id} buttonLabel="Submit CV" />
+            <SubmitCandidateModal defaultSelection={defaultSelection} buttonLabel="Submit a Candidate" />
           </div>
 
           <NotifyClientSubmissions submissions={submissionRows} />

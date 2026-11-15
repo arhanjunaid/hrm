@@ -44,6 +44,8 @@ export interface CreateCandidateInput {
   resumeBuffer: Buffer;
   resumeFileName: string;
   mimeType: string;
+  /** Optional CV description, e.g. which JD this version targets. */
+  description?: string;
 }
 
 export async function createCandidate(input: CreateCandidateInput, adminUserId: string) {
@@ -82,6 +84,8 @@ export async function createCandidate(input: CreateCandidateInput, adminUserId: 
     candidateId,
     submissionId: null,
     fileName: input.resumeFileName,
+    description: input.description?.trim() || null,
+    isObsolete: false,
     storageKey,
     storageProvider: getStorageProviderName(),
     mimeType: input.mimeType,
@@ -123,6 +127,8 @@ export async function getCandidates(options: {
   search?: string;
   page?: number;
   limit?: number;
+  /** Filter to candidates submitted to this client (via their submissions). */
+  clientId?: string;
 }) {
   const page = options.page || 1;
   const limit = options.limit || 25;
@@ -143,6 +149,18 @@ export async function getCandidates(options: {
     );
   }
 
+  if (options.clientId) {
+    conditions.push(
+      inArray(
+        candidates.id,
+        db
+          .select({ id: candidateSubmissions.candidateId })
+          .from(candidateSubmissions)
+          .where(eq(candidateSubmissions.vendorId, options.clientId))
+      )
+    );
+  }
+
   const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
   const [items, totalCount] = await Promise.all([
@@ -152,7 +170,9 @@ export async function getCandidates(options: {
       offset,
       orderBy: [desc(candidates.createdAt)],
       with: {
-        files: true,
+        files: {
+          orderBy: [desc(files.createdAt)],
+        },
         submissions: {
           with: {
             job: true,
@@ -181,7 +201,9 @@ export async function getCandidateById(candidateId: string) {
   const candidate = await db.query.candidates.findFirst({
     where: eq(candidates.id, candidateId),
     with: {
-      files: true,
+      files: {
+        orderBy: [desc(files.createdAt)],
+      },
       submissions: {
         with: {
           job: { with: { vendor: true } },
@@ -263,6 +285,8 @@ export async function replaceCandidateResume(
     candidateId,
     submissionId: null,
     fileName: input.resumeFileName,
+    description: null,
+    isObsolete: false,
     storageKey,
     storageProvider: storageProviderName,
     mimeType: input.mimeType,
@@ -277,6 +301,72 @@ export async function replaceCandidateResume(
     newValue: { fileName: input.resumeFileName, storageKey },
   });
   return { fileId };
+}
+
+/** Upload an additional CV for a candidate (existing CVs are kept). */
+export async function addCandidateResume(
+  candidateId: string,
+  input: { resumeBuffer: Buffer; resumeFileName: string; mimeType: string; description?: string },
+  adminUserId: string
+) {
+  assertResumeFileName(input.resumeFileName);
+
+  const candidate = await db.query.candidates.findFirst({
+    where: eq(candidates.id, candidateId),
+    columns: { id: true },
+  });
+  if (!candidate) throw new Error("CANDIDATE_NOT_FOUND");
+
+  const storageKey = `resumes/${candidateId}/${randomUUID()}-${input.resumeFileName.replace(/[^a-zA-Z0-9.-]/g, "_")}`;
+  const storageProviderName = getStorageProviderName();
+  await getStorageProvider().upload(input.resumeBuffer, storageKey);
+
+  const fileId = randomUUID();
+  await db.insert(files).values({
+    id: fileId,
+    candidateId,
+    submissionId: null,
+    fileName: input.resumeFileName,
+    description: input.description?.trim() || null,
+    isObsolete: false,
+    storageKey,
+    storageProvider: storageProviderName,
+    mimeType: input.mimeType,
+    fileSize: input.resumeBuffer.length,
+    uploadedBy: adminUserId,
+  });
+  await createAuditLog({
+    userId: adminUserId,
+    action: "UPLOAD_RESUME",
+    entityType: "File",
+    entityId: fileId,
+    newValue: { fileName: input.resumeFileName, storageKey, candidateId },
+  });
+  return { fileId };
+}
+
+/** Mark a CV obsolete (or restore it). Obsolete CVs cannot be submitted to new JDs. */
+export async function setResumeObsolete(
+  candidateId: string,
+  fileId: string,
+  isObsolete: boolean,
+  adminUserId: string
+) {
+  const file = await db.query.files.findFirst({
+    where: eq(files.id, fileId),
+  });
+  if (!file || file.candidateId !== candidateId) {
+    throw new Error("RESUME_NOT_FOUND: CV not found for this candidate.");
+  }
+  await db.update(files).set({ isObsolete }).where(eq(files.id, fileId));
+  await createAuditLog({
+    userId: adminUserId,
+    action: isObsolete ? "MARK_RESUME_OBSOLETE" : "RESTORE_RESUME",
+    entityType: "File",
+    entityId: fileId,
+    oldValue: { isObsolete: file.isObsolete },
+    newValue: { isObsolete, candidateId },
+  });
 }
 
 export async function deleteCandidateResume(candidateId: string, adminUserId: string, fileId?: string) {

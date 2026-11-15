@@ -4,6 +4,8 @@ export const vendors = mysqlTable("vendors", {
   id: varchar("id", { length: 36 }).primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),
   code: varchar("code", { length: 50 }).notNull().unique(),
+  // Client vs prospect flag: C = Client, P = Prospect.
+  clientType: varchar("client_type", { length: 1 }).notNull().default("C"),
   contactName: varchar("contact_name", { length: 255 }),
   contactEmail: varchar("contact_email", { length: 255 }).notNull(),
   contactPhone: varchar("contact_phone", { length: 50 }),

@@ -34,13 +34,43 @@ export async function POST(
     }
 
     const { id: clientId } = await params;
-    const body = await req.json();
-    const { contactDate, initiatedBy, source, description, actionRequired, dueDate } = body;
+
+    // Accept multipart (with optional file) as well as plain JSON.
+    let contactDate: string;
+    let initiatedBy: string;
+    let source: string;
+    let description: string;
+    let actionRequired: string | undefined;
+    let dueDate: string | undefined;
+    let file: { fileBuffer: Buffer; fileName: string; mimeType: string } | null = null;
+
+    const contentType = req.headers.get("content-type") || "";
+    if (contentType.includes("multipart/form-data")) {
+      const form = await req.formData();
+      contactDate = String(form.get("contactDate") || "");
+      initiatedBy = String(form.get("initiatedBy") || "");
+      source = String(form.get("source") || "");
+      description = String(form.get("description") || "");
+      actionRequired = (form.get("actionRequired") as string) || undefined;
+      dueDate = (form.get("dueDate") as string) || undefined;
+      const upload = form.get("file") as File | null;
+      if (upload && upload.size > 0) {
+        file = {
+          fileBuffer: Buffer.from(await upload.arrayBuffer()),
+          fileName: upload.name,
+          mimeType: upload.type || "application/octet-stream",
+        };
+      }
+    } else {
+      const body = await req.json();
+      ({ contactDate, initiatedBy, source, description, actionRequired, dueDate } = body);
+    }
 
     const id = await createCommunication(
       clientId,
       { contactDate, initiatedBy, source, description, actionRequired, dueDate },
-      session.id
+      session.id,
+      file
     );
 
     return NextResponse.json({ success: true, id });

@@ -14,6 +14,8 @@ import {
   Tag,
   FolderOpen,
   Menu,
+  Phone,
+  UserPlus,
   X,
 } from "lucide-react";
 
@@ -28,6 +30,8 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ collapsed, onToggle 
   const navItems = [
     { label: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
     { label: "Clients", href: "/admin/clients", icon: Building2 },
+    { label: "Prospects", href: "/admin/prospects", icon: UserPlus },
+    { label: "Call Logs", href: "/admin/call-logs", icon: Phone },
     { label: "Projects", href: "/admin/projects", icon: FolderOpen },
     { label: "Job Descriptions", href: "/admin/jobs", icon: FileText },
     { label: "Candidates", href: "/admin/candidates", icon: Users },

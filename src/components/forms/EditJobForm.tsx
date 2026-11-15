@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { Textarea } from "@/components/ui/Textarea";
 import { Toast } from "@/components/ui/Toast";
 import { Save, ArrowLeft } from "lucide-react";
@@ -192,34 +193,34 @@ export const EditJobForm: React.FC<Props> = ({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input label="Job Title *" required value={form.title} onChange={(e) => set("title", e.target.value)} />
           {jobTitles.length > 0 && (
-            <Select
+            <SearchableSelect
               label="Or pick from Job Titles"
               value={jobTitles.some((t) => t.name === form.title) ? form.title : ""}
-              onChange={(e) => e.target.value && set("title", e.target.value)}
-              options={[
-                { value: "", label: "— Select from master —" },
-                ...jobTitles.map((t) => ({ value: t.name, label: t.name })),
-              ]}
+              onChange={(v) => v && set("title", v)}
+              placeholder="— Select from master —"
+              options={jobTitles.map((t) => ({ value: t.name, label: t.name }))}
             />
           )}
 
           {disciplines.length > 0 ? (
-            <Select
+            <SearchableSelect
               label="Discipline"
               value={form.disciplineId}
-              onChange={(e) => set("disciplineId", e.target.value)}
-              options={[{ value: "", label: "— Select Discipline —" }, ...disciplines.map((d) => ({ value: d.id, label: d.name }))]}
+              onChange={(v) => set("disciplineId", v)}
+              placeholder="— Select Discipline —"
+              options={disciplines.map((d) => ({ value: d.id, label: d.name }))}
             />
           ) : (
             <Input label="Discipline" value={form.department} onChange={(e) => set("department", e.target.value)} />
           )}
 
           {projects.length > 0 && (
-            <Select
+            <SearchableSelect
               label="Project"
               value={form.projectId}
-              onChange={(e) => set("projectId", e.target.value)}
-              options={[{ value: "", label: "— Select Project —" }, ...projects.map((p) => ({ value: p.id, label: p.name }))]}
+              onChange={(v) => set("projectId", v)}
+              placeholder="— Select Project —"
+              options={projects.map((p) => ({ value: p.id, label: p.name }))}
             />
           )}
 

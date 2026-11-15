@@ -10,10 +10,10 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { name, code, contactName, contactEmail, contactPhone, notes, status, crmStatus } = body;
+    const { name, code, contactName, contactEmail, contactPhone, notes, status, crmStatus, clientType } = body;
 
     const id = await createClient(
-      { name, code, contactName, contactEmail, contactPhone, notes, status, crmStatus },
+      { name, code, contactName, contactEmail, contactPhone, notes, status, crmStatus, clientType },
       session.id
     );
 

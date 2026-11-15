@@ -1,12 +1,13 @@
-import React from "react";
+import React, { Suspense } from "react";
 import { requireAdmin } from "@/lib/auth/session";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { getCandidates } from "@/services/candidate.service";
-import { getJobs } from "@/services/job.service";
-import { CandidateModalForm } from "./CandidateModalForm";
+import { getJobById } from "@/services/job.service";
+import { SubmitCandidateModal, SubmitDefaults } from "./SubmitCandidateModal";
 import { Badge } from "@/components/ui/Badge";
 import Link from "next/link";
-import { Download, FileText, Send } from "lucide-react";
+import { ClientFilter } from "@/components/admin/ClientFilter";
+import { db } from "@/db";
 
 import { ResumePreviewModal } from "@/components/ui/ResumePreviewModal";
 import { CandidateManageActions } from "@/components/admin/CandidateManageActions";
@@ -14,7 +15,7 @@ import { CandidateManageActions } from "@/components/admin/CandidateManageAction
 export default async function AdminCandidatesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ search?: string; page?: string; jobId?: string }>;
+  searchParams: Promise<{ search?: string; page?: string; jobId?: string; clientId?: string }>;
 }) {
   const user = await requireAdmin();
   const params = await searchParams;
@@ -22,30 +23,56 @@ export default async function AdminCandidatesPage({
   const search = params.search || "";
   const page = parseInt(params.page || "1", 10);
   const jobId = params.jobId || "";
+  const clientId = params.clientId || "";
 
-  const { candidates, total, totalPages } = await getCandidates({ search, page, limit: 25 });
-  const { jobs } = await getJobs({ status: "PENDING", limit: 100 });
-  const { jobs: wipJobs } = await getJobs({ status: "WIP", limit: 100 });
-  const allOpenJobs = [...jobs, ...wipJobs];
+  const [{ candidates, total, totalPages }, clientList] = await Promise.all([
+    getCandidates({ search, page, limit: 25, clientId: clientId || undefined }),
+    db.query.vendors.findMany({
+      where: (t, { eq }) => eq(t.status, "ACTIVE"),
+      columns: { id: true, name: true, code: true },
+      orderBy: (t, { asc }) => [asc(t.name)],
+    }),
+  ]);
 
-  const formattedJobs = allOpenJobs.map((j) => ({
-    id: j.id,
-    title: j.title,
-    jobCode: j.jobCode,
-    vendorName: j.vendor.name,
-  }));
+  // Prefill the submit flow when landing here from a JD (?jobId=...)
+  let defaultSelection: SubmitDefaults | undefined;
+  if (jobId) {
+    try {
+      const job = await getJobById(jobId);
+      defaultSelection = {
+        clientId: job.vendorId,
+        clientName: job.vendor.name,
+        projectId: job.projectId ?? "",
+        projectName: (job as any).project?.name ?? "",
+        jobId: job.id,
+        jobCode: job.jobCode,
+        jobTitle: job.title,
+      };
+    } catch {
+      defaultSelection = undefined;
+    }
+  }
 
   return (
     <DashboardLayout user={user}>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
             <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">Candidates</h2>
             <p className="text-sm text-slate-500 mt-1">
-              Create candidates, upload resumes, and submit candidates against Client Job Descriptions.
+              Search the candidate pool and submit candidates against Client Job Descriptions.
             </p>
           </div>
-          <CandidateModalForm jobs={formattedJobs} defaultJobId={jobId} />
+          <SubmitCandidateModal defaultSelection={defaultSelection} />
+        </div>
+
+        <div className="bg-white p-4 rounded-3xl border border-slate-200/80 shadow-2xs flex items-center gap-2 flex-wrap">
+          <Suspense>
+            <ClientFilter clients={clientList} />
+          </Suspense>
+          <p className="text-[11px] text-slate-400 font-medium">
+            {clientId ? `Showing candidates submitted to the selected client (${total}).` : `Showing all candidates (${total}).`}
+          </p>
         </div>
 
         {/* Candidate List Table */}
@@ -72,7 +99,7 @@ export default async function AdminCandidatesPage({
                   </tr>
                 ) : (
                   candidates.map((cand) => {
-                    const primaryFile = cand.files[0];
+                    const primaryFile = cand.files.find((f) => !f.isObsolete) ?? cand.files[0];
                     return (
                       <tr key={cand.id} className="hover:bg-slate-50/80 transition-colors">
                         <td className="px-4 py-3.5 font-bold text-slate-900">

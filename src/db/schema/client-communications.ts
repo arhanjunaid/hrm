@@ -1,4 +1,4 @@
-import { mysqlTable, varchar, text, date, timestamp, index } from "drizzle-orm/mysql-core";
+import { mysqlTable, varchar, text, date, timestamp, index, int } from "drizzle-orm/mysql-core";
 import { vendors } from "./vendors";
 import { users } from "./users";
 
@@ -7,7 +7,7 @@ import { users } from "./users";
  * prospect, starting from the day the lead was received.
  *
  * initiatedBy: CLIENT | RF
- * source: FOLLOW_UP | WEB_ENQUIRY | RECOMMENDATION | LINKEDIN | EMAIL_MARKETING | OTHERS
+ * source: a code from the Status Masters table (entityType COMM_SOURCE).
  */
 export const clientCommunications = mysqlTable(
   "client_communications",
@@ -16,10 +16,16 @@ export const clientCommunications = mysqlTable(
     clientId: varchar("client_id", { length: 36 }).notNull().references(() => vendors.id),
     contactDate: date("contact_date").notNull(),
     initiatedBy: varchar("initiated_by", { length: 10 }).notNull(),
-    source: varchar("source", { length: 30 }).notNull(),
+    source: varchar("source", { length: 50 }).notNull(),
     description: text("description").notNull(),
     actionRequired: text("action_required"),
     dueDate: date("due_date"),
+    // Optional attachment (one file per log entry).
+    fileName: varchar("file_name", { length: 255 }),
+    storageKey: varchar("storage_key", { length: 500 }),
+    storageProvider: varchar("storage_provider", { length: 50 }),
+    mimeType: varchar("mime_type", { length: 100 }),
+    fileSize: int("file_size"),
     createdBy: varchar("created_by", { length: 36 }).notNull().references(() => users.id),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow().onUpdateNow(),

@@ -8,10 +8,12 @@
     "start": "next start",
     "lint": "next lint",
     "db:generate": "drizzle-kit generate",
+    "db:baseline": "tsx src/db/baseline.ts",
     "db:migrate": "tsx src/db/migrate.ts",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "db:seed": "tsx src/db/seed.ts",
+    "test:submit-existing": "tsx src/tests/submit-existing.ts",
     "test:workflow": "tsx src/tests/workflow.ts",
     "test:db-ssl": "tsx src/tests/db-ssl-config.ts",
     "test:crm": "tsx src/tests/crm.ts"

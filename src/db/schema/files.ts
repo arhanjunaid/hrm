@@ -1,4 +1,4 @@
-import { mysqlTable, varchar, int, timestamp, index } from "drizzle-orm/mysql-core";
+import { mysqlTable, varchar, int, timestamp, index, boolean } from "drizzle-orm/mysql-core";
 import { candidates } from "./candidates";
 import { users } from "./users";
 
@@ -9,6 +9,11 @@ export const files = mysqlTable(
     candidateId: varchar("candidate_id", { length: 36 }).notNull().references(() => candidates.id),
     submissionId: varchar("submission_id", { length: 36 }),
     fileName: varchar("file_name", { length: 255 }).notNull(),
+    // CV table fields: CV id (= id), description, obsolete flag.
+    // Date of submission is createdAt. A candidate may hold many CVs;
+    // each submission links exactly one CV via candidate_submissions.resume_file_id.
+    description: varchar("description", { length: 255 }),
+    isObsolete: boolean("is_obsolete").notNull().default(false),
     storageKey: varchar("storage_key", { length: 500 }).notNull(),
     storageProvider: varchar("storage_provider", { length: 50 }).notNull().default("local"),
     mimeType: varchar("mime_type", { length: 100 }).notNull(),

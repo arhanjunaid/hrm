@@ -211,7 +211,29 @@ async function seed() {
     },
   ];
 
+  // Communication-log sources (Status Masters entity COMM_SOURCE)
+  const commSources = [
+    { id: "sm-src-01", code: "FOLLOW_UP", description: "Follow-up", sortOrder: 1 },
+    { id: "sm-src-02", code: "WEB_ENQUIRY", description: "Web enquiry", sortOrder: 2 },
+    { id: "sm-src-03", code: "RECOMMENDATION", description: "Recommendation", sortOrder: 3 },
+    { id: "sm-src-04", code: "LINKEDIN", description: "LinkedIn", sortOrder: 4 },
+    { id: "sm-src-05", code: "EMAIL_MARKETING", description: "Email Marketing", sortOrder: 5 },
+    { id: "sm-src-06", code: "OTHERS", description: "Others", sortOrder: 6 },
+  ];
+
   await db.insert(statusMasters).values([
+    ...commSources.map((s) => ({
+      id: s.id,
+      entityType: "COMM_SOURCE" as const,
+      code: s.code,
+      description: s.description,
+      result: "PENDING",
+      clientId: null,
+      sortOrder: s.sortOrder,
+      isActive: true,
+      isSystem: true,
+      allowedNext: null as string | null,
+    })),
     ...jdStatuses.map((s) => ({
       id: s.id,
       entityType: "JD" as const,

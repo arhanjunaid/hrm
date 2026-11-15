@@ -9,7 +9,7 @@ export default async function AdminNewJobPage() {
   const user = await requireAdmin();
 
   const clientList = await db.query.vendors.findMany({
-    where: (t, { eq }) => eq(t.status, "ACTIVE"),
+    where: (t, { eq, and }) => and(eq(t.status, "ACTIVE"), eq(t.clientType, "C")),
     orderBy: (t, { asc }) => [asc(t.name)],
     columns: { id: true, name: true, code: true },
   });

@@ -29,8 +29,8 @@ export async function POST(req: NextRequest) {
     }
     const body = await req.json();
     const { entityType, code, description, result, clientId, sortOrder, isActive, allowedNext } = body;
-    if (!entityType || !["JD", "CANDIDATE"].includes(entityType)) {
-      return NextResponse.json({ success: false, error: { message: "entityType must be JD or CANDIDATE." } }, { status: 400 });
+    if (!entityType || !["JD", "CANDIDATE", "COMM_SOURCE"].includes(entityType)) {
+      return NextResponse.json({ success: false, error: { message: "entityType must be JD, CANDIDATE, or COMM_SOURCE." } }, { status: 400 });
     }
     if (!code?.trim() || !description?.trim()) {
       return NextResponse.json({ success: false, error: { message: "Code and description are required." } }, { status: 400 });

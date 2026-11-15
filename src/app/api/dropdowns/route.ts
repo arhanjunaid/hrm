@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const [disciplineList, jobTitleList, jdStatuses, candidateStatuses] = await Promise.all([
+    const [disciplineList, jobTitleList, jdStatuses, candidateStatuses, commSources] = await Promise.all([
       db.query.disciplines.findMany({
         where: eq(disciplines.status, "ACTIVE"),
         orderBy: (t, { asc }) => [asc(t.name)],
@@ -48,6 +48,7 @@ export async function GET(request: NextRequest) {
       }),
       getStatuses("JD", { clientId: statusClientId }),
       getStatuses("CANDIDATE", { clientId: statusClientId }),
+      getStatuses("COMM_SOURCE", { clientId: statusClientId }),
     ]);
 
     return NextResponse.json({
@@ -73,6 +74,10 @@ export async function GET(request: NextRequest) {
               }
             })()
           : [],
+      })),
+      commSources: commSources.map((s) => ({
+        code: s.code,
+        description: s.description,
       })),
     });
   } catch (err: any) {

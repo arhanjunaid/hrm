@@ -43,6 +43,16 @@ export async function submitCandidateToJob(
     throw new Error("DUPLICATE_SUBMISSION: Candidate has already been submitted to this Job Description.");
   }
 
+  const resumeFile = await db.query.files.findFirst({
+    where: eq(files.id, resumeFileId),
+  });
+  if (!resumeFile || resumeFile.candidateId !== candidateId) {
+    throw new Error("RESUME_NOT_FOUND: The selected CV does not belong to this candidate.");
+  }
+  if (resumeFile.isObsolete) {
+    throw new Error("RESUME_OBSOLETE: Obsolete CVs cannot be submitted to a Job Description.");
+  }
+
   const submissionId = randomUUID();
   const newSub: NewCandidateSubmission = {
     id: submissionId,

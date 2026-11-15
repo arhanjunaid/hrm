@@ -21,8 +21,8 @@ import {
   Award,
 } from "lucide-react";
 
-import { ResumePreviewModal } from "@/components/ui/ResumePreviewModal";
 import { CandidateManageActions } from "@/components/admin/CandidateManageActions";
+import { CandidateCvList } from "./CandidateCvList";
 
 export default async function AdminCandidateDetailPage({
   params,
@@ -33,7 +33,7 @@ export default async function AdminCandidateDetailPage({
   const { id: candidateId } = await params;
 
   const cand = await getCandidateById(candidateId);
-  const primaryResume = cand.files[0];
+  const primaryResume = cand.files.find((f) => !f.isObsolete) ?? cand.files[0];
 
   return (
     <DashboardLayout user={user}>
@@ -65,25 +65,26 @@ export default async function AdminCandidateDetailPage({
           </div>
 
           <div className="flex items-center gap-2 flex-wrap justify-end">
-            {primaryResume && (
-              <ResumePreviewModal
-                fileId={primaryResume.id}
-                fileName={primaryResume.fileName}
-                candidateName={cand.name}
-                triggerLabel="View Resume PDF / Document"
-                triggerVariant="primary"
-              />
-            )}
             <CandidateManageActions
               candidateId={cand.id}
               candidateName={cand.name}
               fileId={primaryResume?.id}
               hasSubmissions={cand.submissions.length > 0}
-              variant="full"
+              variant="candidate-only"
               redirectOnDelete="/admin/candidates"
             />
           </div>
         </div>
+
+        {/* CVs */}
+        <Card>
+          <CardHeader title={`Candidate CVs (${cand.files.length})`} />
+          <CandidateCvList
+            candidateId={cand.id}
+            candidateName={cand.name}
+            initialCvs={JSON.parse(JSON.stringify(cand.files))}
+          />
+        </Card>
 
         {/* Master Profile & Recruitment Journey Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

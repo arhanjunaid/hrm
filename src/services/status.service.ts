@@ -3,7 +3,7 @@ import { statusMasters, NewStatusMaster } from "@/db/schema";
 import { and, asc, eq, isNull, or } from "drizzle-orm";
 import { randomUUID } from "crypto";
 
-export type EntityType = "JD" | "CANDIDATE";
+export type EntityType = "JD" | "CANDIDATE" | "COMM_SOURCE";
 export type StatusResult = "PENDING" | "WIP" | "CLOSED";
 
 export async function getStatuses(

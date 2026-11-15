@@ -37,6 +37,7 @@ export async function POST(request: Request) {
         source: formData.get("source") as string,
         recruiter: formData.get("recruiter") as string,
         notes: formData.get("notes") as string,
+        description: (formData.get("description") as string) || "",
         resumeBuffer: buffer,
         resumeFileName: resumeFile.name,
         mimeType: resumeFile.type || "application/pdf",

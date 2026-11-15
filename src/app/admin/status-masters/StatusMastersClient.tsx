@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { Plus, Pencil, Trash2, X, Check, ListChecks } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
 interface StatusRow {
   id: string;
@@ -36,7 +37,7 @@ const emptyForm = {
 
 export function StatusMastersClient({ clients }: { clients: ClientOpt[] }) {
   const [rows, setRows] = useState<StatusRow[]>([]);
-  const [filter, setFilter] = useState<"ALL" | "JD" | "CANDIDATE">("ALL");
+  const [filter, setFilter] = useState<"ALL" | "JD" | "CANDIDATE" | "COMM_SOURCE">("ALL");
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -59,7 +60,10 @@ export function StatusMastersClient({ clients }: { clients: ClientOpt[] }) {
 
   const openCreate = () => {
     setEditingId(null);
-    setForm({ ...emptyForm, entityType: filter === "CANDIDATE" ? "CANDIDATE" : "JD" });
+    setForm({
+      ...emptyForm,
+      entityType: filter === "CANDIDATE" ? "CANDIDATE" : filter === "COMM_SOURCE" ? "COMM_SOURCE" : "JD",
+    });
     setError(null);
     setShowForm(true);
   };
@@ -143,11 +147,11 @@ export function StatusMastersClient({ clients }: { clients: ClientOpt[] }) {
         <div>
           <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">Status Masters</h2>
           <p className="text-sm text-slate-500 mt-0.5">
-            Maintain JD and Candidate statuses used across the application.
+            Maintain JD, Candidate, and Communication Source values used across the application.
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          {(["ALL", "JD", "CANDIDATE"] as const).map((f) => (
+        <div className="flex items-center gap-2 flex-wrap">
+          {(["ALL", "JD", "CANDIDATE", "COMM_SOURCE"] as const).map((f) => (
             <button
               key={f}
               onClick={() => setFilter(f)}
@@ -157,7 +161,7 @@ export function StatusMastersClient({ clients }: { clients: ClientOpt[] }) {
                   : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
               }`}
             >
-              {f === "ALL" ? "All" : f === "JD" ? "Job Description" : "Candidate"}
+              {f === "ALL" ? "All" : f === "JD" ? "Job Description" : f === "CANDIDATE" ? "Candidate" : "Comm. Source"}
             </button>
           ))}
           <button
@@ -194,6 +198,7 @@ export function StatusMastersClient({ clients }: { clients: ClientOpt[] }) {
                 >
                   <option value="JD">Job Description</option>
                   <option value="CANDIDATE">Candidate</option>
+                  <option value="COMM_SOURCE">Communication Source</option>
                 </select>
               </div>
               <div>
@@ -237,19 +242,16 @@ export function StatusMastersClient({ clients }: { clients: ClientOpt[] }) {
                 />
               </div>
               <div className="col-span-2">
-                <label className="block text-xs font-extrabold text-slate-700 mb-1">Client (optional)</label>
-                <select
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm"
+                <SearchableSelect
+                  label="Client (optional)"
                   value={form.clientId}
-                  onChange={(e) => setForm((p) => ({ ...p, clientId: e.target.value }))}
-                >
-                  <option value="">Global (all clients)</option>
-                  {clients.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(v) => setForm((p) => ({ ...p, clientId: v }))}
+                  placeholder="Global (all clients)"
+                  options={[
+                    { value: "", label: "Global (all clients)" },
+                    ...clients.map((c) => ({ value: c.id, label: c.name })),
+                  ]}
+                />
               </div>
               {form.entityType === "CANDIDATE" && (
                 <div className="col-span-2">
@@ -328,7 +330,7 @@ export function StatusMastersClient({ clients }: { clients: ClientOpt[] }) {
                 rows.map((s) => (
                   <tr key={s.id} className="hover:bg-slate-50/80">
                     <td className="px-4 py-3.5">
-                      <Badge variant={s.entityType === "JD" ? "blue" : "purple"}>{s.entityType}</Badge>
+                      <Badge variant={s.entityType === "JD" ? "blue" : s.entityType === "CANDIDATE" ? "purple" : "green"}>{s.entityType}</Badge>
                     </td>
                     <td className="px-4 py-3.5 font-mono text-xs font-bold">{s.code}</td>
                     <td className="px-4 py-3.5 font-bold text-slate-900">{s.description}</td>

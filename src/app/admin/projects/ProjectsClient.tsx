@@ -3,10 +3,10 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import {
-  FolderOpen, Plus, Search, Mail, User, ExternalLink,
-  Building2, X, Check, Pencil, Trash2, Loader2,
+  FolderOpen, Plus, Search, X, Check, Pencil, Trash2, Loader2,
 } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
 interface ProjectWithClient {
   id: string;
@@ -32,8 +32,8 @@ interface FormState {
   status: string;
 }
 
-const emptyForm = (clients: Client[]): FormState => ({
-  clientId: clients[0]?.id ?? "",
+const emptyForm = (): FormState => ({
+  clientId: "",
   name: "",
   contactName: "",
   contactEmail: "",
@@ -49,10 +49,11 @@ export function ProjectsClient({ initialProjects, clients }: Props) {
   const [projects, setProjects] = useState<ProjectWithClient[]>(initialProjects);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
+  const [clientFilter, setClientFilter] = useState("");
 
   const [showForm, setShowForm] = useState(false);
   const [editingProject, setEditingProject] = useState<ProjectWithClient | null>(null);
-  const [form, setForm] = useState<FormState>(emptyForm(clients));
+  const [form, setForm] = useState<FormState>(emptyForm());
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
@@ -64,12 +65,13 @@ export function ProjectsClient({ initialProjects, clients }: Props) {
       p.client.name.toLowerCase().includes(search.toLowerCase()) ||
       (p.contactName ?? "").toLowerCase().includes(search.toLowerCase());
     const matchStatus = statusFilter === "ALL" || p.status === statusFilter;
-    return matchSearch && matchStatus;
+    const matchClient = clientFilter === "" || p.client.id === clientFilter;
+    return matchSearch && matchStatus && matchClient;
   });
 
   const openCreate = () => {
     setEditingProject(null);
-    setForm(emptyForm(clients));
+    setForm(emptyForm());
     setFormError(null);
     setShowForm(true);
   };
@@ -162,14 +164,25 @@ export function ProjectsClient({ initialProjects, clients }: Props) {
 
       {/* Filters */}
       <div className="flex items-center gap-3 flex-wrap">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-2.5" />
+        <div className="relative flex-1 max-w-sm min-w-[220px]">
+          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             placeholder="Search by project or client name…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-full text-xs font-medium focus:outline-none focus:ring-2 focus:ring-slate-400 shadow-2xs"
+            className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-slate-400 shadow-2xs"
+          />
+        </div>
+        <div className="w-64">
+          <SearchableSelect
+            value={clientFilter}
+            onChange={setClientFilter}
+            placeholder="All clients"
+            options={[
+              { value: "", label: "All clients" },
+              ...clients.map((c) => ({ value: c.id, label: `${c.name} (${c.code})` })),
+            ]}
           />
         </div>
         <div className="flex items-center gap-1.5">
@@ -189,7 +202,7 @@ export function ProjectsClient({ initialProjects, clients }: Props) {
         </div>
       </div>
 
-      {/* Projects grid */}
+      {/* Projects list */}
       {filtered.length === 0 ? (
         <div className="bg-white rounded-[32px] border border-slate-200/80 shadow-2xs p-16 flex flex-col items-center gap-3 text-center">
           <FolderOpen className="w-10 h-10 text-slate-300" />
@@ -212,84 +225,79 @@ export function ProjectsClient({ initialProjects, clients }: Props) {
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-          {filtered.map((p) => (
-            <div
-              key={p.id}
-              className="bg-white rounded-[28px] border border-slate-200/80 shadow-2xs p-5 space-y-4 hover:shadow-md transition-shadow"
-            >
-              {/* Project name + status + actions */}
-              <div className="flex items-start justify-between gap-2">
-                <div className="space-y-1 min-w-0">
-                  <h3 className="text-sm font-extrabold text-slate-900 leading-tight truncate">{p.name}</h3>
-                  <Link
-                    href={`/admin/clients/${p.client.id}/projects`}
-                    className="flex items-center gap-1 text-[11px] font-bold text-slate-500 hover:text-slate-800 transition-colors"
-                  >
-                    <Building2 className="w-3 h-3 shrink-0" />
-                    <span className="truncate">{p.client.name}</span>
-                    <span className="text-slate-300">·</span>
-                    <span className="font-mono text-slate-400">{p.client.code}</span>
-                  </Link>
-                </div>
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <Badge status={p.status} size="sm">{p.status}</Badge>
-                  <button
-                    onClick={() => openEdit(p)}
-                    className="p-1.5 rounded-lg border border-slate-200 text-slate-400 hover:text-slate-700 hover:bg-slate-50 transition-all"
-                    title="Edit project"
-                  >
-                    <Pencil className="w-3 h-3" />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(p)}
-                    disabled={deleting === p.id}
-                    className="p-1.5 rounded-lg border border-rose-200 text-rose-400 hover:bg-rose-50 transition-all disabled:opacity-50"
-                    title="Delete project"
-                  >
-                    {deleting === p.id
-                      ? <Loader2 className="w-3 h-3 animate-spin" />
-                      : <Trash2 className="w-3 h-3" />
-                    }
-                  </button>
-                </div>
-              </div>
-
-              {/* Contact info */}
-              <div className="space-y-1.5">
-                {p.contactName && (
-                  <div className="flex items-center gap-2 text-xs text-slate-600">
-                    <User className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                    <span>{p.contactName}</span>
-                  </div>
-                )}
-                {p.contactEmail && (
-                  <div className="flex items-center gap-2 text-xs text-slate-600">
-                    <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                    <a href={`mailto:${p.contactEmail}`} className="hover:text-blue-600 hover:underline truncate">
-                      {p.contactEmail}
-                    </a>
-                  </div>
-                )}
-                {!p.contactName && !p.contactEmail && (
-                  <p className="text-xs text-slate-400 italic">No contact info</p>
-                )}
-              </div>
-
-              {/* Footer */}
-              <div className="flex items-center justify-between pt-2 border-t border-slate-100">
-                <span className="text-[11px] text-slate-400">
-                  Added {new Date(p.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                </span>
-                <Link
-                  href={`/admin/clients/${p.client.id}/projects`}
-                  className="flex items-center gap-1 text-[11px] font-bold text-slate-500 hover:text-slate-900 transition-colors"
-                >
-                  Manage <ExternalLink className="w-3 h-3" />
-                </Link>
-              </div>
-            </div>
-          ))}
+        <div className="bg-white rounded-[28px] border border-slate-200/80 shadow-2xs overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs text-slate-700 border-collapse min-w-[840px]">
+              <thead className="border-b border-slate-200/80 text-[11px] font-black text-slate-400 uppercase tracking-wider">
+                <tr>
+                  <th className="py-3 px-4">Project</th>
+                  <th className="py-3 px-4">Client</th>
+                  <th className="py-3 px-4">Contact</th>
+                  <th className="py-3 px-4">Status</th>
+                  <th className="py-3 px-4">Added</th>
+                  <th className="py-3 px-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filtered.map((p) => (
+                  <tr key={p.id} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="py-3 px-4 font-extrabold text-slate-900">{p.name}</td>
+                    <td className="py-3 px-4">
+                      <Link
+                        href={`/admin/clients/${p.client.id}`}
+                        className="font-semibold text-slate-700 hover:text-[#7E8920] hover:underline"
+                      >
+                        {p.client.name}
+                      </Link>
+                      <span className="font-mono text-[11px] text-slate-400 ml-1.5">{p.client.code}</span>
+                    </td>
+                    <td className="py-3 px-4">
+                      {p.contactName || p.contactEmail ? (
+                        <>
+                          <p className="font-semibold text-slate-800">{p.contactName || "—"}</p>
+                          {p.contactEmail && (
+                            <a href={`mailto:${p.contactEmail}`} className="text-[11px] text-slate-500 hover:text-blue-600 hover:underline">
+                              {p.contactEmail}
+                            </a>
+                          )}
+                        </>
+                      ) : (
+                        <span className="text-slate-400 italic">No contact info</span>
+                      )}
+                    </td>
+                    <td className="py-3 px-4">
+                      <Badge status={p.status} size="sm">{p.status}</Badge>
+                    </td>
+                    <td className="py-3 px-4 text-slate-500 whitespace-nowrap">
+                      {new Date(p.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                    </td>
+                    <td className="py-3 px-4">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          onClick={() => openEdit(p)}
+                          className="p-1.5 rounded-lg border border-slate-200 text-slate-400 hover:text-slate-700 hover:bg-slate-50 transition-all"
+                          title="Edit project"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(p)}
+                          disabled={deleting === p.id}
+                          className="p-1.5 rounded-lg border border-rose-200 text-rose-400 hover:bg-rose-50 transition-all disabled:opacity-50"
+                          title="Delete project"
+                        >
+                          {deleting === p.id
+                            ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            : <Trash2 className="w-3.5 h-3.5" />
+                          }
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
@@ -324,25 +332,21 @@ export function ProjectsClient({ initialProjects, clients }: Props) {
                 </label>
                 {editingProject ? (
                   <div className="flex items-center gap-2 px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-600">
-                    <Building2 className="w-4 h-4 text-slate-400 shrink-0" />
                     <span className="font-bold">{editingProject.client.name}</span>
                     <span className="text-xs text-slate-400 font-mono ml-auto">{editingProject.client.code}</span>
                   </div>
+                ) : clients.length === 0 ? (
+                  <p className="text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5">
+                    No clients available — add a client first.
+                  </p>
                 ) : (
-                  <select
+                  <SearchableSelect
                     value={form.clientId}
-                    onChange={(e) => setForm({ ...form, clientId: e.target.value })}
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 bg-white"
-                  >
-                    {clients.length === 0 && (
-                      <option value="">No clients available</option>
-                    )}
-                    {clients.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name} ({c.code})
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(v) => setForm({ ...form, clientId: v })}
+                    placeholder="Select a client"
+                    required
+                    options={clients.map((c) => ({ value: c.id, label: `${c.name} (${c.code})` }))}
+                  />
                 )}
               </div>
 

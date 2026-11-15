@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Loader2, RefreshCw, Trash2 } from "lucide-react";
 import { Toast } from "@/components/ui/Toast";
 
-type Variant = "full" | "compact" | "resume-only";
+type Variant = "full" | "compact" | "resume-only" | "candidate-only";
 
 export function CandidateManageActions({
   candidateId,
@@ -129,15 +129,17 @@ export function CandidateManageActions({
         }}
       />
       <div className="flex items-center justify-end gap-1.5 flex-wrap">
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={!!busy}
-          className={`${btn} border-slate-300 bg-white text-slate-700 hover:bg-slate-50`}
-        >
-          {busy === "replace" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-          Replace Resume
-        </button>
+        {variant !== "candidate-only" && (
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={!!busy}
+            className={`${btn} border-slate-300 bg-white text-slate-700 hover:bg-slate-50`}
+          >
+            {busy === "replace" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+            Replace Resume
+          </button>
+        )}
         {variant === "full" && fileId && (
           <button
             type="button"

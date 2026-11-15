@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { Textarea } from "@/components/ui/Textarea";
 import { Toast } from "@/components/ui/Toast";
 import { Save, Send, ArrowLeft } from "lucide-react";
@@ -174,14 +175,12 @@ export const JobForm: React.FC = () => {
 
           {/* Discipline dropdown */}
           {disciplines.length > 0 ? (
-            <Select
+            <SearchableSelect
               label="Discipline"
               value={formData.disciplineId}
-              onChange={(e) => set("disciplineId", e.target.value)}
-              options={[
-                { value: "", label: "— Select Discipline —" },
-                ...disciplines.map((d) => ({ value: d.id, label: d.name })),
-              ]}
+              onChange={(v) => set("disciplineId", v)}
+              placeholder="— Select Discipline —"
+              options={disciplines.map((d) => ({ value: d.id, label: d.name }))}
             />
           ) : (
             <Input
@@ -194,14 +193,12 @@ export const JobForm: React.FC = () => {
 
           {/* Project dropdown */}
           {projects.length > 0 ? (
-            <Select
+            <SearchableSelect
               label="Project"
               value={formData.projectId}
-              onChange={(e) => set("projectId", e.target.value)}
-              options={[
-                { value: "", label: "— Select Project —" },
-                ...projects.map((p) => ({ value: p.id, label: p.name })),
-              ]}
+              onChange={(v) => set("projectId", v)}
+              placeholder="— Select Project —"
+              options={projects.map((p) => ({ value: p.id, label: p.name }))}
             />
           ) : (
             <div className="flex flex-col gap-1">

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { Textarea } from "@/components/ui/Textarea";
 import { Toast } from "@/components/ui/Toast";
 import { Save, ArrowLeft } from "lucide-react";
@@ -130,46 +131,46 @@ export const AdminJobForm: React.FC<{ clients: Client[] }> = ({ clients }) => {
 
       <form className="bg-white p-6 rounded-[28px] border border-slate-200/80 shadow-2xs space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Select
-            label="Client *"
+          <SearchableSelect
+            label="Client"
+            required
             value={formData.vendorId}
-            onChange={(e) => set("vendorId", e.target.value)}
-            options={[
-              { value: "", label: "— Select Client —" },
-              ...clients.map((c) => ({ value: c.id, label: `${c.name} (${c.code})` })),
-            ]}
+            onChange={(v) => set("vendorId", v)}
+            placeholder="— Select Client —"
+            options={clients.map((c) => ({ value: c.id, label: `${c.name} (${c.code})` }))}
           />
           {jobTitles.length > 0 ? (
-            <Select
-              label="Job Title *"
+            <SearchableSelect
+              label="Job Title"
+              required
               value={formData.title}
-              onChange={(e) => set("title", e.target.value)}
-              options={[
-                { value: "", label: "— Select Job Title —" },
-                ...jobTitles.map((t) => ({ value: t.name, label: t.name })),
-              ]}
+              onChange={(v) => set("title", v)}
+              placeholder="— Select Job Title —"
+              options={jobTitles.map((t) => ({ value: t.name, label: t.name }))}
             />
           ) : (
             <Input label="Job Title *" required value={formData.title} onChange={(e) => set("title", e.target.value)} />
           )}
 
           {disciplines.length > 0 ? (
-            <Select
+            <SearchableSelect
               label="Discipline"
               value={formData.disciplineId}
-              onChange={(e) => set("disciplineId", e.target.value)}
-              options={[{ value: "", label: "— Select Discipline —" }, ...disciplines.map((d) => ({ value: d.id, label: d.name }))]}
+              onChange={(v) => set("disciplineId", v)}
+              placeholder="— Select Discipline —"
+              options={disciplines.map((d) => ({ value: d.id, label: d.name }))}
             />
           ) : (
             <Input label="Discipline" value={formData.department} onChange={(e) => set("department", e.target.value)} />
           )}
 
           {projects.length > 0 && (
-            <Select
+            <SearchableSelect
               label="Project"
               value={formData.projectId}
-              onChange={(e) => set("projectId", e.target.value)}
-              options={[{ value: "", label: "— Select Project —" }, ...projects.map((p) => ({ value: p.id, label: p.name }))]}
+              onChange={(v) => set("projectId", v)}
+              placeholder="— Select Project —"
+              options={projects.map((p) => ({ value: p.id, label: p.name }))}
             />
           )}
 
