@@ -12,7 +12,7 @@ import {
 } from "@/lib/crm/constants";
 import { getStatuses } from "./status.service";
 import { randomUUID } from "crypto";
-import { eq, desc, sql } from "drizzle-orm";
+import { eq, and, desc, inArray, sql } from "drizzle-orm";
 import { createAuditLog } from "./audit.service";
 import {
   getStorageProvider,
@@ -396,6 +396,8 @@ export async function listCommunications(clientId: string) {
 /** Global call/communication log across all clients, newest first. */
 export async function listAllCommunications(options: {
   clientId?: string;
+  /** "C" = clients only, "P" = prospects only, anything else = all. */
+  clientType?: string;
   page?: number;
   limit?: number;
 }) {
@@ -403,9 +405,23 @@ export async function listAllCommunications(options: {
   const limit = options.limit || 25;
   const offset = (page - 1) * limit;
 
-  const whereClause = options.clientId
-    ? eq(clientCommunications.clientId, options.clientId)
-    : undefined;
+  const conditions = [];
+  if (options.clientId) {
+    conditions.push(eq(clientCommunications.clientId, options.clientId));
+  }
+  if (options.clientType === "C" || options.clientType === "P") {
+    const vines = await db.query.vendors.findMany({
+      where: eq(vendors.clientType, options.clientType),
+      columns: { id: true },
+    });
+    const ids = vines.map((v) => v.id);
+    conditions.push(
+      ids.length > 0
+        ? inArray(clientCommunications.clientId, ids)
+        : sql`1 = 0`
+    );
+  }
+  const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
   const [items, totalCount] = await Promise.all([
     db.query.clientCommunications.findMany({

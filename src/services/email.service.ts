@@ -1,10 +1,17 @@
 import nodemailer from "nodemailer";
 
+export interface EmailAttachment {
+  filename: string;
+  content: Buffer;
+  contentType?: string;
+}
+
 export interface SendEmailParams {
   to: string | string[];
   subject: string;
   html: string;
   cc?: string | string[];
+  attachments?: EmailAttachment[];
 }
 
 export interface SendEmailResult {
@@ -71,6 +78,11 @@ export async function sendEmail(params: SendEmailParams): Promise<SendEmailResul
       cc: ccList.length ? ccList.join(", ") : undefined,
       subject: params.subject,
       html: params.html,
+      attachments: (params.attachments ?? []).map((a) => ({
+        filename: a.filename,
+        content: a.content,
+        contentType: a.contentType,
+      })),
     });
     return { sent: true, messageId: info.messageId };
   } catch (err: any) {

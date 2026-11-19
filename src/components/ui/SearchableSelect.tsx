@@ -8,6 +8,17 @@ export interface SearchableOption {
   label: string;
 }
 
+/** Action row pinned above the options (e.g. "Add a new Project"). */
+export interface SearchableHeaderAction {
+  label: string;
+  /** Navigate to this URL when clicked. */
+  href?: string;
+  /** Open href in a new tab so the current form is preserved. Defaults to true for href actions. */
+  openInNewTab?: boolean;
+  /** Run instead of navigation (e.g. reset the selection). */
+  onSelect?: () => void;
+}
+
 interface SearchableSelectProps {
   label?: string;
   value: string;
@@ -20,6 +31,9 @@ interface SearchableSelectProps {
   helperText?: string;
   className?: string;
   id?: string;
+  autoFocus?: boolean;
+  /** Pinned rows rendered first with a separator line above the real options. */
+  headerActions?: SearchableHeaderAction[];
 }
 
 /**
@@ -38,6 +52,8 @@ export function SearchableSelect({
   helperText,
   className = "",
   id,
+  autoFocus = false,
+  headerActions = [],
 }: SearchableSelectProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -110,6 +126,7 @@ export function SearchableSelect({
           role="combobox"
           aria-expanded={open}
           autoComplete="off"
+          autoFocus={autoFocus}
           disabled={disabled}
           placeholder={selected ? selected.label : placeholder}
           value={open ? query : selected?.label ?? ""}
@@ -149,6 +166,34 @@ export function SearchableSelect({
             role="listbox"
             className="absolute z-40 mt-1.5 w-full max-h-60 overflow-auto rounded-xl border border-slate-200 bg-white py-1 shadow-xl"
           >
+            {headerActions.length > 0 && (
+              <>
+                {headerActions.map((action, idx) => (
+                  <li key={`header-${idx}`}>
+                    <button
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => {
+                        setQuery("");
+                        setOpen(false);
+                        if (action.onSelect) action.onSelect();
+                        else if (action.href) {
+                          const newTab = action.openInNewTab ?? true;
+                          if (newTab) window.open(action.href, "_blank", "noopener,noreferrer");
+                          else window.location.href = action.href;
+                        }
+                      }}
+                      className="w-full text-left px-3.5 py-2 text-sm font-bold text-[#7E8920] hover:bg-slate-100 transition-colors"
+                    >
+                      {action.label}
+                    </button>
+                  </li>
+                ))}
+                <li aria-hidden="true">
+                  <hr className="my-1 border-slate-200" />
+                </li>
+              </>
+            )}
             {filtered.length === 0 ? (
               <li className="px-3.5 py-2.5 text-xs text-slate-400 italic">No matches found.</li>
             ) : (

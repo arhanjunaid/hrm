@@ -28,6 +28,13 @@ export async function GET(request: NextRequest) {
       projectList = scope.all
         ? allProjects
         : allProjects.filter((p) => scope.projectIds.includes(p.id));
+    } else if (clientIdParam) {
+      // Admin creating a JD for one client: only that client's projects.
+      projectList = await db.query.projects.findMany({
+        where: eq(projects.clientId, clientIdParam),
+        orderBy: (t, { asc }) => [asc(t.name)],
+        columns: { id: true, name: true, clientId: true },
+      });
     } else {
       projectList = await db.query.projects.findMany({
         orderBy: (t, { asc }) => [asc(t.name)],

@@ -6,6 +6,8 @@ import { listAllCommunications } from "@/services/client.service";
 import { getAllStatusMasters } from "@/services/status.service";
 import { Pagination } from "@/components/ui/Pagination";
 import { ClientFilter } from "@/components/admin/ClientFilter";
+import { CallLogTypeFilter } from "./CallLogTypeFilter";
+import { AddCallLogModal } from "./AddCallLogModal";
 import { Badge } from "@/components/ui/Badge";
 import { Paperclip, Phone } from "lucide-react";
 import { db } from "@/db";
@@ -23,19 +25,25 @@ function formatDate(value: string | Date | null | undefined) {
 export default async function AdminCallLogsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string; clientId?: string }>;
+  searchParams: Promise<{ page?: string; clientId?: string; clientType?: string }>;
 }) {
   const user = await requireAdmin();
   const params = await searchParams;
 
   const page = parseInt(params.page || "1", 10);
   const clientId = params.clientId || "";
+  const clientType = params.clientType || "ALL";
 
   const [{ communications, total, totalPages }, clientList, sourceRows] = await Promise.all([
-    listAllCommunications({ clientId: clientId || undefined, page, limit: 25 }),
+    listAllCommunications({
+      clientId: clientId || undefined,
+      clientType: clientType === "C" || clientType === "P" ? clientType : undefined,
+      page,
+      limit: 25,
+    }),
     db.query.vendors.findMany({
       where: (t, { eq }) => eq(t.status, "ACTIVE"),
-      columns: { id: true, name: true, code: true },
+      columns: { id: true, name: true, code: true, clientType: true },
       orderBy: (t, { asc }) => [asc(t.name)],
     }),
     getAllStatusMasters("COMM_SOURCE"),
@@ -50,6 +58,7 @@ export default async function AdminCallLogsPage({
   const pageHref = (p: number) => {
     const qs = new URLSearchParams();
     if (clientId) qs.set("clientId", clientId);
+    if (clientType === "C" || clientType === "P") qs.set("clientType", clientType);
     qs.set("page", String(p));
     return `/admin/call-logs?${qs.toString()}`;
   };
@@ -57,16 +66,22 @@ export default async function AdminCallLogsPage({
   return (
     <DashboardLayout user={user}>
       <div className="space-y-6">
-        <div>
-          <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">Call Logs</h2>
-          <p className="text-sm text-slate-500 mt-1">
-            Every client and prospect communication log entry in one place — {total} total.
-          </p>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">Call Logs</h2>
+            <p className="text-sm text-slate-500 mt-1">
+              Every client and prospect communication log entry in one place — {total} total.
+            </p>
+          </div>
+          <AddCallLogModal clients={clientList} />
         </div>
 
         <div className="bg-white p-4 rounded-3xl border border-slate-200/80 shadow-2xs flex items-center gap-2 flex-wrap">
           <Suspense>
             <ClientFilter clients={clientList} />
+          </Suspense>
+          <Suspense>
+            <CallLogTypeFilter />
           </Suspense>
         </div>
 

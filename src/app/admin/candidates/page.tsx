@@ -63,7 +63,14 @@ export default async function AdminCandidatesPage({
               Search the candidate pool and submit candidates against Client Job Descriptions.
             </p>
           </div>
-          <SubmitCandidateModal defaultSelection={defaultSelection} />
+          <div className="flex items-center gap-2 flex-wrap">
+            <SubmitCandidateModal
+              standalone
+              buttonLabel="Add a Candidate"
+              buttonVariant="secondary"
+            />
+            <SubmitCandidateModal defaultSelection={defaultSelection} />
+          </div>
         </div>
 
         <div className="bg-white p-4 rounded-3xl border border-slate-200/80 shadow-2xs flex items-center gap-2 flex-wrap">

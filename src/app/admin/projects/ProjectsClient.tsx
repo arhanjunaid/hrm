@@ -345,6 +345,7 @@ export function ProjectsClient({ initialProjects, clients }: Props) {
                     onChange={(v) => setForm({ ...form, clientId: v })}
                     placeholder="Select a client"
                     required
+                    autoFocus
                     options={clients.map((c) => ({ value: c.id, label: `${c.name} (${c.code})` }))}
                   />
                 )}
@@ -360,7 +361,7 @@ export function ProjectsClient({ initialProjects, clients }: Props) {
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                   placeholder="e.g. Site A Expansion 2026"
-                  autoFocus
+                  autoFocus={!!editingProject}
                 />
               </div>
 

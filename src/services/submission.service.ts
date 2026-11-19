@@ -10,7 +10,8 @@ import {
   users,
 } from "@/db/schema";
 import { randomUUID } from "crypto";
-import { eq, and, sql, desc, inArray } from "drizzle-orm";
+import type { Readable } from "stream";
+import { eq, and, sql, desc, gte, lte, inArray } from "drizzle-orm";
 import { createAuditLog } from "./audit.service";
 import { createNotification } from "./notification.service";
 import { getStorageProvider } from "./storage.service";
@@ -249,6 +250,11 @@ export async function getSubmissions(options: {
   limit?: number;
   projectIds?: string[] | null;
   restrictToProjects?: boolean;
+  /** Single project filter (via the JD's project). */
+  projectId?: string | null;
+  /** Submission-date range, inclusive, as YYYY-MM-DD. */
+  fromDate?: string | null;
+  toDate?: string | null;
 }) {
   const page = options.page || 1;
   const limit = options.limit || 25;
@@ -272,6 +278,26 @@ export async function getSubmissions(options: {
     conditions.push(eq(candidateSubmissions.jobId, options.jobId));
   }
 
+  if (options.projectId) {
+    const jobsInProject = await db.query.jobDescriptions.findMany({
+      where: eq(jobDescriptions.projectId, options.projectId),
+      columns: { id: true },
+    });
+    const jobIds = jobsInProject.map((j) => j.id);
+    conditions.push(
+      jobIds.length > 0
+        ? inArray(candidateSubmissions.jobId, jobIds)
+        : sql`1 = 0`
+    );
+  }
+
+  if (options.fromDate && /^\d{4}-\d{2}-\d{2}$/.test(options.fromDate)) {
+    conditions.push(gte(candidateSubmissions.createdAt, new Date(`${options.fromDate}T00:00:00`)));
+  }
+  if (options.toDate && /^\d{4}-\d{2}-\d{2}$/.test(options.toDate)) {
+    conditions.push(lte(candidateSubmissions.createdAt, new Date(`${options.toDate}T23:59:59`)));
+  }
+
   const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
   let [items, totalCount] = await Promise.all([
@@ -281,7 +307,7 @@ export async function getSubmissions(options: {
       offset: options.restrictToProjects ? 0 : offset,
       orderBy: [desc(candidateSubmissions.createdAt)],
       with: {
-        job: true,
+        job: { with: { project: { columns: { id: true, name: true } } } },
         candidate: true,
         vendor: true,
         resumeFile: true,
@@ -557,4 +583,130 @@ export async function notifyClientOfSubmissions(
   }
 
   return { success: true, results };
+}
+
+async function streamToBuffer(stream: Readable): Promise<Buffer> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+  return Buffer.concat(chunks);
+}
+
+/** Email selected submissions to the requesting admin, with CVs attached. */
+export async function emailSubmissionsToSelf(
+  submissionIds: string[],
+  adminUserId: string,
+  adminEmail: string
+) {
+  if (!submissionIds.length) {
+    throw new Error("NO_SUBMISSIONS_SELECTED");
+  }
+  if (!adminEmail) {
+    throw new Error("NO_ADMIN_EMAIL");
+  }
+
+  const subs = await db.query.candidateSubmissions.findMany({
+    where: inArray(candidateSubmissions.id, submissionIds),
+    with: {
+      candidate: true,
+      job: { with: { project: true } },
+      vendor: true,
+      resumeFile: true,
+    },
+  });
+
+  if (!subs.length) {
+    throw new Error("NO_SUBMISSIONS_FOUND");
+  }
+
+  const storageProvider = getStorageProvider();
+  const attachments: { filename: string; content: Buffer; contentType?: string }[] = [];
+  const skipped: string[] = [];
+
+  for (const sub of subs) {
+    if (!sub.resumeFile) {
+      skipped.push(sub.id);
+      continue;
+    }
+    try {
+      const stream = await storageProvider.getStream(sub.resumeFile.storageKey);
+      const content = await streamToBuffer(stream);
+      attachments.push({
+        filename: `${sub.candidate.name} - ${sub.resumeFile.fileName}`.replace(/[\\/]/g, "_"),
+        content,
+        contentType: sub.resumeFile.mimeType || undefined,
+      });
+    } catch {
+      skipped.push(sub.id);
+    }
+  }
+
+  const rows = subs
+    .map(
+      (s) => `<tr>
+          <td style="padding:8px;border:1px solid #e2e8f0;">${s.candidate.name}</td>
+          <td style="padding:8px;border:1px solid #e2e8f0;">${s.job.jobCode}</td>
+          <td style="padding:8px;border:1px solid #e2e8f0;">${s.job.title}</td>
+          <td style="padding:8px;border:1px solid #e2e8f0;">${s.vendor.name}</td>
+          <td style="padding:8px;border:1px solid #e2e8f0;">${s.job.project?.name || "—"}</td>
+          <td style="padding:8px;border:1px solid #e2e8f0;">${s.status}</td>
+        </tr>`
+    )
+    .join("");
+
+  const html = `
+    <div style="font-family:sans-serif;color:#0f172a;">
+      <h2>Selected submissions — Rightfit</h2>
+      <p>${subs.length} submission(s) you selected, with CVs attached where available:</p>
+      <table style="border-collapse:collapse;width:100%;font-size:14px;">
+        <thead>
+          <tr style="background:#f8fafc;">
+            <th style="padding:8px;border:1px solid #e2e8f0;text-align:left;">Candidate</th>
+            <th style="padding:8px;border:1px solid #e2e8f0;text-align:left;">JD Code</th>
+            <th style="padding:8px;border:1px solid #e2e8f0;text-align:left;">Job Title</th>
+            <th style="padding:8px;border:1px solid #e2e8f0;text-align:left;">Client</th>
+            <th style="padding:8px;border:1px solid #e2e8f0;text-align:left;">Project</th>
+            <th style="padding:8px;border:1px solid #e2e8f0;text-align:left;">Status</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+      ${
+        skipped.length > 0
+          ? `<p style="color:#b45309;font-size:12px;">${skipped.length} CV(s) could not be attached (missing file).</p>`
+          : ""
+      }
+    </div>
+  `;
+
+  const emailResult = await sendEmail({
+    to: adminEmail,
+    subject: `Selected submissions (${subs.length}) with CVs — Rightfit`,
+    html,
+    attachments,
+  });
+
+  await createAuditLog({
+    userId: adminUserId,
+    action: "EMAIL_SUBMISSIONS_SELF",
+    entityType: "CandidateSubmission",
+    entityId: subs[0].id,
+    newValue: {
+      submissionIds: subs.map((s) => s.id),
+      to: adminEmail,
+      emailed: emailResult.sent,
+      attachments: attachments.length,
+      skipped,
+    },
+  });
+
+  return {
+    success: true,
+    emailed: emailResult.sent,
+    error: emailResult.error,
+    submissionCount: subs.length,
+    attachmentCount: attachments.length,
+    skipped,
+  };
 }

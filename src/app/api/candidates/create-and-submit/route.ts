@@ -17,7 +17,7 @@ export async function POST(request: Request) {
     }
 
     const buffer = Buffer.from(await resumeFile.arrayBuffer());
-    const selectedJobId = formData.get("selectedJobId") as string;
+    const selectedJobId = (formData.get("selectedJobId") as string) || "";
 
     const { candidateId, fileId } = await createCandidate(
       {
@@ -45,7 +45,10 @@ export async function POST(request: Request) {
       session.id
     );
 
-    const submissionId = await submitCandidateToJob(selectedJobId, candidateId, fileId, session.id);
+    // Standalone "Add a Candidate": no JD target, candidate joins the pool only.
+    const submissionId = selectedJobId
+      ? await submitCandidateToJob(selectedJobId, candidateId, fileId, session.id)
+      : null;
 
     return NextResponse.json({
       success: true,

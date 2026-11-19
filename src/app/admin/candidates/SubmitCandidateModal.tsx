@@ -36,6 +36,8 @@ interface Props {
   onSuccess?: () => void;
   buttonLabel?: string;
   buttonVariant?: "primary" | "secondary" | "outline";
+  /** Standalone "Add a Candidate" mode: no client/JD target, candidate goes to the pool only. */
+  standalone?: boolean;
 }
 
 const emptyCandidate = {
@@ -62,6 +64,7 @@ export const SubmitCandidateModal: React.FC<Props> = ({
   onSuccess,
   buttonLabel = "Submit a Candidate",
   buttonVariant = "primary",
+  standalone = false,
 }) => {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
@@ -88,8 +91,8 @@ export const SubmitCandidateModal: React.FC<Props> = ({
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [cvDescription, setCvDescription] = useState("");
 
-  const targetComplete = locked || (clientId !== "" && projectId !== "" && jobId !== "");
-  const effectiveJobId = locked ? defaultSelection.jobId : jobId;
+  const targetComplete = standalone || locked || (clientId !== "" && projectId !== "" && jobId !== "");
+  const effectiveJobId = standalone ? "" : locked ? defaultSelection.jobId : jobId;
 
   const reset = () => {
     setClientId(""); setProjectId(""); setJobId("");
@@ -104,6 +107,7 @@ export const SubmitCandidateModal: React.FC<Props> = ({
   useEffect(() => {
     if (!isOpen) return;
     reset();
+    if (standalone) return;
     fetch("/api/admin/submit-options")
       .then((r) => r.json())
       .then((data) => {
@@ -166,7 +170,11 @@ export const SubmitCandidateModal: React.FC<Props> = ({
   );
 
   const finish = (message: string) => {
-    setToast({ type: "success", title: "Candidate Submitted Successfully", message });
+    setToast({
+      type: "success",
+      title: standalone ? "Candidate Added" : "Candidate Submitted Successfully",
+      message,
+    });
     setIsLoading(false);
     setTimeout(() => {
       setIsOpen(false);
@@ -230,7 +238,11 @@ export const SubmitCandidateModal: React.FC<Props> = ({
         setIsLoading(false);
         return;
       }
-      finish("Candidate created & submitted to the Job Description.");
+      finish(
+        standalone
+          ? "Candidate added to the pool."
+          : "Candidate created & submitted to the Job Description."
+      );
     } catch {
       setToast({ type: "error", title: "Network Error", message: "Failed to communicate with server." });
       setIsLoading(false);
@@ -258,7 +270,7 @@ export const SubmitCandidateModal: React.FC<Props> = ({
         {buttonLabel}
       </Button>
 
-      <Modal isOpen={isOpen} onClose={() => setIsOpen(false)} title="Submit a Candidate" maxWidth="2xl">
+      <Modal isOpen={isOpen} onClose={() => setIsOpen(false)} title={standalone ? "Add a Candidate" : "Submit a Candidate"} maxWidth="2xl">
         {toast && (
           <div className="mb-4">
             <Toast type={toast.type} title={toast.title} message={toast.message} onClose={() => setToast(null)} />
@@ -266,20 +278,22 @@ export const SubmitCandidateModal: React.FC<Props> = ({
         )}
 
         {/* Step indicator */}
-        <div className="flex items-center gap-2 mb-5 text-[11px] font-extrabold uppercase tracking-wider">
-          <span className={`px-2.5 py-1 rounded-full ${!targetComplete ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-500"}`}>
-            1. Target JD
-          </span>
-          <span className="text-slate-300">→</span>
-          <span className={`px-2.5 py-1 rounded-full ${targetComplete ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-400"}`}>
-            2. Candidate
-          </span>
-        </div>
+        {!standalone && (
+          <div className="flex items-center gap-2 mb-5 text-[11px] font-extrabold uppercase tracking-wider">
+            <span className={`px-2.5 py-1 rounded-full ${!targetComplete ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-500"}`}>
+              1. Target JD
+            </span>
+            <span className="text-slate-300">→</span>
+            <span className={`px-2.5 py-1 rounded-full ${targetComplete ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-400"}`}>
+              2. Candidate
+            </span>
+          </div>
+        )}
 
         {targetBanner}
 
         {/* Step 1: Client -> Project -> JD */}
-        {!locked && (
+        {!locked && !standalone && (
           <div className="space-y-3 mt-4">
             <SearchableSelect
               label="Client"
@@ -297,6 +311,10 @@ export const SubmitCandidateModal: React.FC<Props> = ({
               placeholder={clientId ? "Select a project" : "Select a client first"}
               disabled={!clientId}
               options={projects.map((p) => ({ value: p.id, label: p.name }))}
+              headerActions={[
+                { label: "Select a Project", onSelect: () => { setProjectId(""); setJobId(""); } },
+                { label: "+ Add a new Project", href: "/admin/projects" },
+              ]}
             />
             <SearchableSelect
               label="Job Description"
@@ -309,12 +327,16 @@ export const SubmitCandidateModal: React.FC<Props> = ({
                 value: j.id,
                 label: `${j.jobCode} — ${j.title} (${j.status})`,
               }))}
+              headerActions={[
+                { label: "Select a Job Description", onSelect: () => setJobId("") },
+                { label: "+ Add a new Job Description", href: "/admin/jobs/new" },
+              ]}
             />
           </div>
         )}
 
         {/* Step 2: choose existing vs new */}
-        {targetComplete && mode === "choose" && (
+        {targetComplete && mode === "choose" && !standalone && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
             <button
               type="button"
@@ -338,7 +360,7 @@ export const SubmitCandidateModal: React.FC<Props> = ({
         )}
 
         {/* Step 2a: existing candidate */}
-        {targetComplete && mode === "existing" && (
+        {targetComplete && mode === "existing" && !standalone && (
           <div className="space-y-4 mt-4">
             <button
               type="button"
@@ -433,12 +455,38 @@ export const SubmitCandidateModal: React.FC<Props> = ({
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2 flex-wrap">
                               <span className="text-sm font-bold text-slate-900 truncate">{cv.fileName}</span>
-                              {cv.isObsolete && <Badge variant="red">Obsolete</Badge>}
+                              {cv.isObsolete ? (
+                                <Badge variant="red">Obsolete</Badge>
+                              ) : (
+                                <Badge variant="green">Current</Badge>
+                              )}
                             </div>
-                            <p className="text-[11px] text-slate-500 mt-0.5">
-                              {cv.description || "No description"} • Submitted{" "}
-                              {new Date(cv.createdAt).toLocaleDateString()}
-                            </p>
+                            <dl className="mt-1 grid grid-cols-1 sm:grid-cols-3 gap-x-3 gap-y-0.5 text-[11px]">
+                              <div className="sm:col-span-1">
+                                <dt className="font-extrabold uppercase tracking-wider text-slate-400 text-[10px]">
+                                  Description
+                                </dt>
+                                <dd className="text-slate-600 truncate">
+                                  {cv.description || "—"}
+                                </dd>
+                              </div>
+                              <div>
+                                <dt className="font-extrabold uppercase tracking-wider text-slate-400 text-[10px]">
+                                  Submitted
+                                </dt>
+                                <dd className="text-slate-600">
+                                  {new Date(cv.createdAt).toLocaleDateString()}
+                                </dd>
+                              </div>
+                              <div>
+                                <dt className="font-extrabold uppercase tracking-wider text-slate-400 text-[10px]">
+                                  Status
+                                </dt>
+                                <dd className="text-slate-600 font-semibold">
+                                  {cv.isObsolete ? "Obsolete" : "Current"}
+                                </dd>
+                              </div>
+                            </dl>
                           </div>
                         </label>
                       ))}
@@ -470,16 +518,18 @@ export const SubmitCandidateModal: React.FC<Props> = ({
           </div>
         )}
 
-        {/* Step 2b: new candidate */}
-        {targetComplete && mode === "new" && (
+        {/* Step 2b: new candidate (also the standalone "Add a Candidate" form) */}
+        {targetComplete && (mode === "new" || standalone) && (
           <form onSubmit={handleSubmitNew} className="space-y-4 mt-4">
-            <button
-              type="button"
-              onClick={() => setMode("choose")}
-              className="inline-flex items-center gap-1 text-xs font-bold text-slate-500 hover:text-slate-800"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" /> Back
-            </button>
+            {!standalone && (
+              <button
+                type="button"
+                onClick={() => setMode("choose")}
+                className="inline-flex items-center gap-1 text-xs font-bold text-slate-500 hover:text-slate-800"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" /> Back
+              </button>
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <Input label="Candidate Name" required value={newCand.name} onChange={(e) => setNewCand({ ...newCand, name: e.target.value })} />
@@ -517,7 +567,11 @@ export const SubmitCandidateModal: React.FC<Props> = ({
                 </p>
               )}
               <Input
-                placeholder="CV description (optional, e.g. tailored for this JD)"
+                placeholder={
+                  standalone
+                    ? "CV description (optional)"
+                    : "CV description (optional, e.g. tailored for this JD)"
+                }
                 value={cvDescription}
                 onChange={(e) => setCvDescription(e.target.value)}
               />
@@ -528,7 +582,7 @@ export const SubmitCandidateModal: React.FC<Props> = ({
                 Cancel
               </Button>
               <Button type="submit" isLoading={isLoading} rightIcon={<Send className="w-4 h-4" />}>
-                Create & Submit
+                {standalone ? "Add Candidate" : "Create & Submit"}
               </Button>
             </div>
           </form>

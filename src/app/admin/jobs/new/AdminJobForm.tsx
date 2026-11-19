@@ -61,12 +61,26 @@ export const AdminJobForm: React.FC<{ clients: Client[] }> = ({ clients }) => {
       .then((data) => {
         if (data.success) {
           setDisciplines(data.disciplines ?? []);
-          setProjects(data.projects ?? []);
           setJobTitles(data.jobTitles ?? []);
           if (data.jdStatuses?.length) setJdStatuses(data.jdStatuses);
         }
       });
   }, []);
+
+  // Cascade: only the selected client's projects are offered.
+  useEffect(() => {
+    if (!formData.vendorId) {
+      setProjects([]);
+      return;
+    }
+    fetch(`/api/dropdowns?clientId=${encodeURIComponent(formData.vendorId)}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.success) setProjects(data.projects ?? []);
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.vendorId]);
 
   const set = (key: string, value: unknown) =>
     setFormData((prev) => ({ ...prev, [key]: value }));
@@ -130,50 +144,82 @@ export const AdminJobForm: React.FC<{ clients: Client[] }> = ({ clients }) => {
       {toast && <Toast type={toast.type} title={toast.title} message={toast.message} onClose={() => setToast(null)} />}
 
       <form className="bg-white p-6 rounded-[28px] border border-slate-200/80 shadow-2xs space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Target section: Client -> Project -> Job Title -> Discipline */}
+        <div className="bg-slate-100 p-4 rounded-2xl border border-slate-200/80 space-y-4">
           <SearchableSelect
             label="Client"
             required
             value={formData.vendorId}
-            onChange={(v) => set("vendorId", v)}
+            onChange={(v) => {
+              set("vendorId", v);
+              set("projectId", "");
+            }}
             placeholder="— Select Client —"
             options={clients.map((c) => ({ value: c.id, label: `${c.name} (${c.code})` }))}
           />
-          {jobTitles.length > 0 ? (
+
+          <SearchableSelect
+            label="Project"
+            value={formData.projectId}
+            onChange={(v) => set("projectId", v)}
+            placeholder={formData.vendorId ? "— Select Project —" : "Select a client first"}
+            disabled={!formData.vendorId}
+            options={projects.map((p) => ({ value: p.id, label: p.name }))}
+            headerActions={[
+              { label: "Select a Project", onSelect: () => set("projectId", "") },
+              { label: "+ Add a new Project", href: "/admin/projects" },
+            ]}
+          />
+
+          <div>
             <SearchableSelect
               label="Job Title"
               required
               value={formData.title}
               onChange={(v) => set("title", v)}
-              placeholder="— Select Job Title —"
+              placeholder={jobTitles.length > 0 ? "— Select Job Title —" : "No active job titles"}
+              disabled={jobTitles.length === 0}
               options={jobTitles.map((t) => ({ value: t.name, label: t.name }))}
+              headerActions={[
+                { label: "Select a Job Title", onSelect: () => set("title", "") },
+                { label: "+ Add a new Job Title", href: "/admin/job-titles" },
+              ]}
             />
-          ) : (
-            <Input label="Job Title *" required value={formData.title} onChange={(e) => set("title", e.target.value)} />
-          )}
+            {jobTitles.length === 0 && (
+              <p className="mt-1 text-xs text-slate-500">
+                No active job titles.{" "}
+                <Link href="/admin/job-titles" target="_blank" className="text-blue-600 hover:underline font-bold">
+                  Add one →
+                </Link>
+              </p>
+            )}
+          </div>
 
-          {disciplines.length > 0 ? (
+          <div>
             <SearchableSelect
               label="Discipline"
               value={formData.disciplineId}
               onChange={(v) => set("disciplineId", v)}
-              placeholder="— Select Discipline —"
+              placeholder={disciplines.length > 0 ? "— Select Discipline —" : "No active disciplines"}
+              disabled={disciplines.length === 0}
               options={disciplines.map((d) => ({ value: d.id, label: d.name }))}
+              headerActions={[
+                { label: "Select a Discipline", onSelect: () => set("disciplineId", "") },
+                { label: "+ Add a new Discipline", href: "/admin/disciplines" },
+              ]}
             />
-          ) : (
-            <Input label="Discipline" value={formData.department} onChange={(e) => set("department", e.target.value)} />
-          )}
+            {disciplines.length === 0 && (
+              <p className="mt-1 text-xs text-slate-500">
+                No active disciplines.{" "}
+                <Link href="/admin/disciplines" target="_blank" className="text-blue-600 hover:underline font-bold">
+                  Add one →
+                </Link>
+              </p>
+            )}
+          </div>
+        </div>
 
-          {projects.length > 0 && (
-            <SearchableSelect
-              label="Project"
-              value={formData.projectId}
-              onChange={(v) => set("projectId", v)}
-              placeholder="— Select Project —"
-              options={projects.map((p) => ({ value: p.id, label: p.name }))}
-            />
-          )}
-
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="flex flex-col gap-1">
             <label className="text-xs font-extrabold text-slate-700">Location *</label>
             <input
